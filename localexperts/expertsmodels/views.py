@@ -1,6 +1,8 @@
 # Create your views here.
 from django.http import HttpResponse
+from django.template import loader, Context
 
 def heatmap(request):
-    return HttpResponse("Hello, world. You're at the heatmap page.")
+    template = loader.get_template('heatmap.html')
+    return HttpResponse(template.render(Context({'dummy':None})))
 
