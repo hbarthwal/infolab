@@ -1,15 +1,65 @@
 # Create your views here.
 from django.http import HttpResponse
 from django.template import loader, Context
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
+from django.views.generic import View
+from expertsmodels.api.experts_api import ExpertsDataAPI
+from json import dumps
+from rest_framework.decorators import APIView
+from rest_framework.response import Response 
 
 
-@api_view(['GET'])
-def getUserLocationsForExpertise(request):
-    return Response({"message": "Hello for today! See you tomorrow!"})
+
+class ExpertsView(View):
+    
+    def get(self, request):
+        return self.getHeatmap(request)   
+    
+    
+    def getHeatmap(self, request):
+        template = loader.get_template('heatmap.html')
+        return HttpResponse(template.render(Context({'dummy':None})))
 
 
-def heatmap(request):
-    template = loader.get_template('heatmap.html')
-    return HttpResponse(template.render(Context({'dummy':None})))
+class ExpertsService(APIView):
+    
+    requestType = ''
+    expertLocationsJson = {}
+    expertsAPIObject = ExpertsDataAPI()
+    
+    def _fetchData(self, request):
+        self.expertsAPIObject.loadData()
+        
+        
+    def get(self, request):
+        self._fetchData(request)
+        expertise = request.REQUEST['expertise']
+        if self.requestType == 'expertslocations':
+            return self.getUserLocationsForExpertise(request, expertise)   
+    
+    def getExpertises(self):
+        self.expertsAPIObject
+    
+    def getUserLocationsForExpertise(self, request, expertise):
+        if self._isAvailableInCache(request, expertise):
+            cachedData = self._getCacheData(request, expertise)
+            return Response(cachedData)
+        else :
+            print 'Data not found'
+        print 'Getting expertise heatmap data for ', expertise
+        expertsLocations = self.expertsAPIObject.getExpertsHeatmapData(expertise)
+        jsonData = dumps(expertsLocations)
+        self._cacheData(request, expertise, jsonData)
+        return Response(jsonData)
+    
+    def _isAvailableInCache(self, request, key):
+        print 'Data found in cache for key', key
+        return key in request.session
+    
+    def _cacheData(self, request, key, data):
+        print 'Caching data for key', key
+        request.session[key] = data
+    
+    def _getCacheData(self, request, key):
+        print 'Getting data from cache for key', key
+        return request.session[key]
+    
