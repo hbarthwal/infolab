@@ -15,7 +15,7 @@ function HeatmapOverlay(map, cfg){
     me.bounds = null;
     me.setMap(map);
   
-  //google.maps.event.addListener(map, 'idle', function() { me.draw() });
+    //google.maps.event.addListener(map, 'idle', function() { me.draw() });
 }
 
 HeatmapOverlay.prototype = new google.maps.OverlayView();

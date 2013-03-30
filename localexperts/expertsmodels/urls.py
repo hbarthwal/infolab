@@ -8,5 +8,6 @@ from django.conf.urls import patterns, url
 from expertsmodels import views
 
 urlpatterns = patterns('',
-    url(r'^$', views.heatmap, name='index')
+    url(r'^$', views.heatmap),
+    url(r'^getHeatmapData$', views.getUserLocationsForExpertise)
 )
