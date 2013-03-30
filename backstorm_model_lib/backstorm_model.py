@@ -10,11 +10,9 @@ class BackStormModelGenerator:
     
     dictExpertiseRegions =  {'tech': Region()}
 
-    
     def getMaxLikelihoodValue(self, region):
         print 'getting the max likelihood value for region', region
         
-   
     def calculateLogLikelihood(self, region):
         print 'calculating the log likelihood value for region', region
         
