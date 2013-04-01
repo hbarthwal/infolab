@@ -61,9 +61,9 @@
 			    console.log("Clicked Button");
 			    var map = new google.maps.Map($("#heatmapArea")[0], myOptions);
 			    var heatmap = new HeatmapOverlay(map, {
-					"radius" : 5,
+					"radius" : 20,
 					"visible" : true,
-					"opacity" : 60
+					"opacity" : 70
 				});
 				var expertise = $("#txtExpertise").val().trim();
 				
@@ -87,6 +87,7 @@
 			alert(error);
 		}
 	};
+
 </script>
 <body>
 	<table>

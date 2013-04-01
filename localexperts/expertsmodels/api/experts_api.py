@@ -20,7 +20,7 @@ class ExpertsDataAPI:
         print 'No of entries : ', len(expertsDataList)
         expertsDataListForHeatmap = []
         for expertData in expertsDataList:
-            expertDataDict = {'lat': expertData[2],'lng':expertData[3], 'count':1}
+            expertDataDict = {'lat': expertData[2],'lng':expertData[3], 'count':expertData[1]}
             expertsDataListForHeatmap.append(expertDataDict)
         return expertsDataListForHeatmap
         
