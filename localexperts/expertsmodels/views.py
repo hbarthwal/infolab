@@ -25,6 +25,10 @@ class ExpertsService(APIView):
     requestType = ''
     expertLocationsJson = {}
     expertsAPIObject = ExpertsDataAPI()
+    HEATMAP = 'heatmap:'
+    
+    def getHeatMapKey(self, expertise):
+        return self.HEATMAP + expertise
     
     def _fetchData(self, request):
         self.expertsAPIObject.loadData()
@@ -35,9 +39,6 @@ class ExpertsService(APIView):
         expertise = request.REQUEST['expertise']
         if self.requestType == 'expertslocations':
             return self.getUserLocationsForExpertise(request, expertise)   
-    
-    def getExpertises(self):
-        self.expertsAPIObject
     
     def getUserLocationsForExpertise(self, request, expertise):
         if self._isAvailableInCache(request, expertise):
@@ -51,15 +52,17 @@ class ExpertsService(APIView):
         self._cacheData(request, expertise, jsonData)
         return Response(jsonData)
     
-    def _isAvailableInCache(self, request, key):
-        print 'Data found in cache for key', key
+    def _isAvailableInCache(self, request, expertise):
+        key = self.getHeatMapKey(expertise)
         return key in request.session
     
-    def _cacheData(self, request, key, data):
+    def _cacheData(self, request, expertise, data):
+        key = self.getHeatMapKey(expertise)
         print 'Caching data for key', key
         request.session[key] = data
     
-    def _getCacheData(self, request, key):
+    def _getCacheData(self, request, expertise):
+        key = self.getHeatMapKey(expertise)
         print 'Getting data from cache for key', key
         return request.session[key]
     

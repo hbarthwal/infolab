@@ -14,7 +14,16 @@ class DataExtractor:
     def __init__(self, dataDirectory):
         self._expertUsersData.clear()
         self._dataDirectory = dataDirectory
-    
+      
+    #filters the user data for United States only
+    def _isPointInUS(self, userData):
+        rightBottomCoordinates = (25, -68)
+        leftTopCoordinates = (47, -122)
+        if userData[2] >= rightBottomCoordinates[0] and userData[2] <= leftTopCoordinates[0]:
+            if userData[3] <= rightBottomCoordinates[1] and userData[3] >= leftTopCoordinates[1]:
+                return True
+        return False
+                
     
     def populateData(self, dataDirectory, expertise = 'all'):
         if expertise == 'all':
@@ -51,28 +60,32 @@ class DataExtractor:
                 expertRank = rawData[1].strip()
                 latitude = rawData[2].strip()
                 longitude = rawData[3].strip()
-                expertsDataList.append((int(userId), float(expertRank), float(latitude), float(longitude)))
+                userData = (int(userId), float(expertRank), float(latitude), float(longitude))
+                # We restrict our study to United States only
+                if self._isPointInUS(userData):
+                    expertsDataList.append(userData)
         self._expertUsersData[expertise] = expertsDataList
         
     def displayData(self, expertise):
         print '------------------'
-        print self._expertUsersData
+        print self._expertUsersData[expertise]
     
-    def getExpertUsersData(self, expertise = 'all'):
-        if expertise == 'all':
-            self.populateData(self._dataDirectory)
-            return self._expertUsersData
-        
-        else:
+    def getExpertUsersData(self, expertise):
+        if expertise not in self._expertUsersData:
             self.populateData(self._dataDirectory, expertise)
             return self._expertUsersData[expertise]
+        return self._expertUsersData[expertise]
     
+    def getAllExpertsData(self):
+        if len(self._expertUsersData) > 0:
+            return self._expertUsersData
 
 def main():
     print 'Main'
-    dataDirectory = '/home/himanshu/workspace/backstorm_model_lib/heatmap/data/expert_locations'
+    dataDirectory =  '/home/himanshu/workspace/infolab/localexperts/expertsmodels/lib/data/expert_locations'
     data = DataExtractor(dataDirectory)
-    data.displayData('academia')
+    data.getExpertUsersData('dog')
+    data.displayData('dog')
         
     
     

@@ -11,7 +11,7 @@ class ExpertsDataAPI:
 
     def loadData(self):
         print 'Loading the experts users data'
-        self._data = DataExtractor(self._dataDirectory).getExpertUsersData()
+        self._data = DataExtractor(self._dataDirectory)
        
     
     def getExpertsHeatmapData(self, expertise):
