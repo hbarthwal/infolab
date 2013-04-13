@@ -27,8 +27,8 @@ class DataExtractor:
     @return: True if the user lies in the US, False otherwise.
     '''
     def _isPointInUS(self, userData):
-        rightBottomCoordinates = (25, -68)
-        leftTopCoordinates = (47, -122)
+        rightBottomCoordinates = (27, -61)
+        leftTopCoordinates = (50, -129)
         if userData[2] >= rightBottomCoordinates[0] and userData[2] <= leftTopCoordinates[0]:
             if userData[3] <= rightBottomCoordinates[1] and userData[3] >= leftTopCoordinates[1]:
                 return True
@@ -93,7 +93,7 @@ class DataExtractor:
                 expertRank = rawData[1].strip()
                 latitude = rawData[2].strip()
                 longitude = rawData[3].strip()
-                userData = (int(userId), float(expertRank), float(latitude), float(longitude))
+                userData = (int(userId), float(expertRank), float(latitude), float(longitude), expertise)
                 # We restrict our study to United States only
                 if self._isPointInUS(userData):
                     expertsDataList.append(userData)
@@ -122,12 +122,13 @@ class DataExtractor:
     @return: The dictionary containing usersdata for all the expertise
     '''
     def getAllExpertsData(self):
-        if len(self._expertUsersData) > 0:
-            return self._expertUsersData
+        if len(self._expertUsersData) == 0:
+            self.populateData(self._dataDirectory, expertise='all')
+        return self._expertUsersData
 
 def main():
     print 'Main'
-    dataDirectory =  '/home/himanshu/workspace/infolab/localexperts/expertsmodels/lib/data/expert_locations'
+    dataDirectory =  'data/expert_locations'
     data = DataExtractor(dataDirectory)
     data.getExpertUsersData('dog')
     data.displayData('dog')

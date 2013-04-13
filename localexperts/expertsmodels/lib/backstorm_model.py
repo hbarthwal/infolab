@@ -5,8 +5,10 @@ Created on Mar 24, 2013
 '''
 from region import Region
 from extractdata import DataExtractor
-from math import radians, cos, sin, asin, sqrt, log, pow
+from math import log, pow
+from bucket_users import BucketUsers
 from operator import itemgetter
+from utility import Utility
 from pprint import pprint
 
 class BackStormModelGenerator:
@@ -16,20 +18,22 @@ class BackStormModelGenerator:
     _dataDirectory = ''
     _dataExtractor = None
     
+    _usersBucket = None
+    _bucketingInterval = 20 
     # min - max values for the C and alpha parameter 
-    _alphaMin = 0.01
-    _alphaMax = 10
-    _Cmin = 0.01
-    _Cmax = 0.99
+    _alphaMin = 0.001
+    _alphaMax = 9.99
+    _Cmin = 0.001
+    _Cmax = 0.999
     # tolerance values for the golden section search algorithm
     _Ctolerance = .01
-    _alphaTolerance = 0.1
+    _alphaTolerance = 0.001
     
     # intial size of each grid
-    _initialChildRegionVerticalSize = 10
-    _initialChildRegionHorizontalSize = 10
+    _initialChildRegionVerticalSize = 2
+    _initialChildRegionHorizontalSize = 2
     # minimum size of grid
-    _minChildRegionSize = .5
+    _minChildRegionSize = .01
     
     def __init__(self, dataDirectory):
         self._dictExpertiseRegions.clear()
@@ -38,28 +42,8 @@ class BackStormModelGenerator:
         self._dataExtractor = DataExtractor(self._dataDirectory)
         self._dataExtractor.populateData(self._dataDirectory)
         self._createParentRegions()
-        self._addUserDataToRegions()
+        Utility.addUserDataToRegions(self._dictExpertUsersData)
 
-    """
-    Calculate the great circle distance between two points 
-    on the earth (specified in decimal degrees)
-    @param longitudeCenter: The longitude of the center
-    @param latitudeCenter:  The longitude of the center
-    @param longitudeUser: The longitude of the user
-    @param latitudeUser:  The longitude of the user
-    
-    @return: Haversine distance between the user and the center
-    """
-    def _haversine(self, longitudeCenter, latitudeCenter, longitudeUser, latitudeUser):
-        # convert decimal degrees to radians 
-        longitudeCenter, latitudeCenter, longitudeUser, latitudeUser = map(radians, [longitudeCenter, latitudeCenter, longitudeUser, latitudeUser])
-        # haversine formula 
-        diffLongitude = longitudeUser - longitudeCenter 
-        diffLatitude = latitudeUser - latitudeCenter 
-        a = sin(diffLatitude / 2) ** 2 + cos(latitudeCenter) * cos(latitudeUser) * sin(diffLongitude / 2) ** 2
-        c = 2 * asin(sqrt(a)) 
-        km = 6367 * c
-        return km    
 
     '''
     Calculates the likelihood value for Backstorm model p = C*d^-alpha
@@ -69,40 +53,58 @@ class BackStormModelGenerator:
     '''
     def _likelihoodFunction(self, C, alpha, childRegion):
         
-        expertValue = 0
-        nonExpertValue = 0
+        expertValueSum = 0
+        nonExpertValueSum = 0
         
-        # the field of expertise to which is child region belongs
-        expertise = self._getExpertiseForRegion(childRegion)
-        
-        # the root region from which this child has descended 
-        parentRegion = self._dictExpertiseRegions[expertise][0]
-       
         # We will use all the users location for a given expertise's parent childRegion
         # to calculate the log likelihood about the center of a 
         # given child childRegion.
-        expertUsersData = Region.getUsersData()
-        for userData in expertUsersData:
-            
-            location = (latitude, longitude) = (userData[2], userData[3])
-            # if the user data is corresponding to a location 
-            # belonging to the expertise region only then we include it in
-            # our calculation
-            if parentRegion.boundsLocation(location):
-                 
-                # We calculate the maximum likelihood for the Backstorm model
-                # using the center of this childRegion as the center of the model
-                center = childRegion.getCenter()
-                distance = self._haversine(center[1], center[0], longitude, latitude)
-                modelValue = C * pow(distance, -alpha)
-                # if user is an expert in the expertise of the given childRegion
-                if userData[4] == expertise:
-                    expertValue += log(modelValue)
-                else:
-                    # if user is not an expert in the expertise of the given childRegion
-                    nonExpertValue += log(1 - modelValue)
         
-        functionValue = expertValue + nonExpertValue
+        usersDataBuckets = self._usersBucket.getUsersBucket()
+        expertCount = 0
+        for bucketKey in usersDataBuckets:
+            
+            usersBucket = usersDataBuckets[bucketKey] 
+            
+            # We calculate the maximum likelihood for the Backstorm model
+            # using the center of this childRegion as the center of the model
+            expertModelValue, nonExpertModelValue = 0, 0
+            
+            if 'expert' in usersBucket:
+                expertUsersBucket = usersBucket['expert'] 
+                expertUsersConfidenceSum = expertUsersBucket['confidenceSum']
+                expertUserDistance = expertUsersBucket['averageDistance']
+                try:
+                    if expertUserDistance == 0:
+                        expertUserDistance = 0.01
+                    expertModelValue = C * pow(expertUserDistance, -alpha)
+                    expertModelValue = expertUsersConfidenceSum * log(expertModelValue)
+                    expertCount += 1
+                except:
+                    print 'Expert: distance->',expertUserDistance,' confidence->' ,expertUsersConfidenceSum
+                    print 'usersBucketKey', bucketKey
+                    raise
+            
+            elif 'nonexpert' in usersBucket:    
+                nonExpertUsersBucket = usersBucket['nonexpert']
+                nonExpertUsersConfidenceSum = nonExpertUsersBucket['confidenceSum']
+                nonExpertUserDistance = nonExpertUsersBucket['averageDistance']
+                try:
+                    if nonExpertUserDistance == 0:
+                        nonExpertUserDistance = 0.01
+                    nonExpertModelValue = C * pow(nonExpertUserDistance, -alpha)
+                    if nonExpertModelValue >= 1:
+                        nonExpertModelValue = .99
+                    nonExpertModelValue = nonExpertUsersConfidenceSum * log(1 - nonExpertModelValue)
+                except:
+                    print 'Non Expert: distance->', nonExpertUserDistance,' confidence->' ,nonExpertUsersConfidenceSum  
+                    print 'usersBucketKey', bucketKey
+                    raise
+            
+            expertValueSum += expertModelValue
+            nonExpertValueSum += nonExpertModelValue
+            
+        functionValue = expertValueSum + nonExpertValueSum
         return functionValue
       
     '''
@@ -118,10 +120,8 @@ class BackStormModelGenerator:
         bAlpha = self._alphaMax
         
         while bAlpha - aAlpha > self._alphaTolerance:
-            #print 'bAlpha:',bAlpha,' ','aAlpha:',aAlpha,' '
             x1Alpha = aAlpha + (1 - goldenRatio) * (bAlpha - aAlpha)
             x2Alpha = aAlpha + goldenRatio * (bAlpha - aAlpha)
-            #print 'x1Alpha:',x1Alpha,' ','x2Alpha:',x2Alpha
            
             fx1Alpha = self._likelihoodFunction(C, x1Alpha, childRegion)
             fx2Alpha = self._likelihoodFunction(C, x2Alpha, childRegion)
@@ -133,7 +133,6 @@ class BackStormModelGenerator:
         
         argmaxAlpha = (aAlpha + bAlpha) / 2
         maxLikelihoodValue = self._likelihoodFunction(C, argmaxAlpha, childRegion)
-        #print 'argmaxAlpha : ',argmaxAlpha,'maxlikelihoodValue :', maxLikelihoodValue
         return (argmaxAlpha, maxLikelihoodValue)
 
     '''
@@ -143,17 +142,14 @@ class BackStormModelGenerator:
     @param childRegion: The childRegion for which we want to calculate the model
     '''
     def _goldenSectionSearch(self, childRegion):
-        print '-----------------'
         # Golden section search for C and alpha parameters  
         goldenRatio = 0.618
         aC = self._Cmin
         bC = self._Cmax
         
         while bC - aC > self._Ctolerance:
-            #print 'aC:',aC,' ','bC:',bC,' '
             x1C = aC + (1 - goldenRatio) * (bC - aC)
             x2C = aC + goldenRatio * (bC - aC)
-            #print 'x1C:',x1C,' ','x2C:',x2C
             
             fx1C = self._goldenSectionSearchForAlpha(x1C, childRegion)[1]
             fx2C = self._goldenSectionSearchForAlpha(x2C, childRegion)[1]
@@ -172,7 +168,8 @@ class BackStormModelGenerator:
     calculated.
     '''
     def _calculateMaxLogLikelihood(self, region):
-        print 'calculating the log likelihood value for region', region.getName()
+        #print 'calculating the log likelihood value for region', region.getName()
+        self._usersBucket = BucketUsers(region, self._bucketingInterval)
         return self._goldenSectionSearch(region)
    
     '''
@@ -191,18 +188,18 @@ class BackStormModelGenerator:
     mleRegion.
     '''
     def _getMaximumLikelyChildRegion(self, parentRegion):
-        print 'calculating maximum likelihood for all regions in'+ parentRegion.getName() +' and getting the maximum parentRegion'
+        #print 'calculating maximum likelihood for all regions in'+ parentRegion.getName() +' and getting the maximum parentRegion'
         previousMaxLikelihoodValue = maxLikelihoodValue = -9999999999999
         (argmaxC, argmaxAlpha) = (0, 0)
         mleRegion = parentRegion.getChildRegion(0, 0)
         for childrenRegionRow in parentRegion.getChildRegions():
                 for childRegion in childrenRegionRow:
                     (argmaxC, argmaxAlpha, value) = self._calculateMaxLogLikelihood(childRegion)
-                    print 'Got value =' , value
+                    #print 'Got value =' , value
                     maxLikelihoodValue = max(maxLikelihoodValue, value)
-                    print 'Got mle Value = ', maxLikelihoodValue
+                    #print 'Got mle Value = ', maxLikelihoodValue
                     if maxLikelihoodValue > previousMaxLikelihoodValue:
-                        print maxLikelihoodValue, ' is greater than ', previousMaxLikelihoodValue
+                        #print maxLikelihoodValue, ' is greater than ', previousMaxLikelihoodValue
                         mleRegion = childRegion
                         previousMaxLikelihoodValue = maxLikelihoodValue 
         return (mleRegion, argmaxC, argmaxAlpha)
@@ -219,11 +216,11 @@ class BackStormModelGenerator:
         expertiseRegions = self._dictExpertiseRegions[expertise]
         for expertiseRegion in expertiseRegions:
             region = expertiseRegion
-            print region.getName(),' has lefttop :', region._leftTop, ' rightbottom :',region._rightBottom  
+            #print region.getName(),' has lefttop :', region._leftTop, ' rightbottom :',region._rightBottom  
             while childRegionHorizontalSize >= self._minChildRegionSize:
                 region.segmentByChildSize(childRegionHorizontalSize, childRegionVerticalSize)
                 (mleRegion, argmaxC, argmaxAlpha) = self._getMaximumLikelyChildRegion(region)
-                print mleRegion.getName(), ' has the largest mle value','C = ', argmaxC, ' alpha = ', argmaxAlpha 
+                #print mleRegion.getName(), ' has the largest mle value','C = ', argmaxC, ' alpha = ', argmaxAlpha 
                 region = mleRegion
                 childRegionHorizontalSize = childRegionHorizontalSize / 2
                 childRegionVerticalSize = childRegionVerticalSize / 2
@@ -232,6 +229,8 @@ class BackStormModelGenerator:
             self._dictExpertModels[expertise].append({'C':argmaxC, 'alpha': argmaxAlpha, 'center': mleRegion.getCenter()})
         else:
             self._dictExpertModels[expertise] = [{'C':argmaxC, 'alpha': argmaxAlpha, 'center': mleRegion.getCenter()}]
+        
+        pprint(self._dictExpertModels[expertise]) 
     
     '''
     Generates models for all expertise extracted from the usersdata
@@ -269,22 +268,11 @@ class BackStormModelGenerator:
         minLongitude = min(expertUsersData, key=itemgetter(3))[3]
         leftTop = (maxLatitude, minLongitude)
         rightBottom = (minLatiude, maxLongitude)
-        expertRegion = Region(leftTop, rightBottom, expertise + ' Region', True)
+        expertRegion = Region(leftTop, rightBottom, expertise + ' Region', True, expertise = expertise)
         print 'Coordinates : minlatitude = ', minLatiude, ', maxLatitude = ', maxLatitude
         print 'minlongitude = ', minLongitude, ', maxlongitude = ', maxLongitude
         return expertRegion
         
-    '''
-    Adds the extracted user data to the expert regions 
-    '''    
-    def _addUserDataToRegions(self):
-        usersDataForAllExpertise = self._dictExpertUsersData
-        # Add all the user data to the region
-        print 'Adding all the user data to Region'
-        for expertise in usersDataForAllExpertise:
-            for userData in usersDataForAllExpertise[expertise]:
-                Region.addUserData((userData[0], userData[1], userData[2], userData[3], expertise))
-        print 'Added total ', len(Region.getUsersData()), ' entries to Region user data'
     
     '''
     Gets the expertise for a bounding region
@@ -299,9 +287,12 @@ class BackStormModelGenerator:
     
 def main():
     print 'Main'   
-    dataDirectory = '/home/himanshu/workspace/infolab/localexperts/expertsmodels/lib/data/expert_locations'
+    dataDirectory = 'data/'
     modelGenerator = BackStormModelGenerator(dataDirectory)
-    modelGenerator.generateModelForAllExpertise()
+    #modelGenerator.generateModelForExpertise('aggie')
+    modelGenerator.generateModelForExpertise('rap')
+    modelGenerator.generateModelForExpertise('vc')
+    #modelGenerator.generateModelForExpertise('longhorn')
     modelGenerator.display()
 
 

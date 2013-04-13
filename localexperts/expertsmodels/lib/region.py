@@ -13,8 +13,7 @@ class RegionBase:
     # contains tuples containing userid, user confidence, latitude , longitude, 
     # expertise (True if the user belongs the expertise of this region) in that order
     _usersData = [(77463542,0.98,67.9,-76.9,'aggie')]
-
-
+    
 class Region(RegionBase):
     _name = ''
     _leftTop = (0, 0)
@@ -22,9 +21,9 @@ class Region(RegionBase):
     _horizontalSize = 0
     _verticalSize = 0
     _center = (0,0)
-    
+    _expertise = ''
     # Distinguishes a parent region
-    _isParent = False
+    _isParent = True
     
     #_parentRegion for a parentRegion will be None
     # All the regions which are formed after segmentation cannot be parent Regions
@@ -48,11 +47,13 @@ class Region(RegionBase):
     
     @param isParent: Indicates if this is the root region.
     '''
-    def __init__(self, topLeft, rightBottom, name = 'New Region', isParent = False):
+    def __init__(self, topLeft, rightBottom, name = 'New Region', isParent = True, expertise = 'Jacks Of All Trades'):
         self._isParent = isParent
         self._name = name
         self._rightBottom = rightBottom
         self._leftTop = topLeft
+        self._expertise = expertise
+        self._validateCoordinates()
         self._calculateRegionAttributes()
     
     '''
@@ -67,6 +68,9 @@ class Region(RegionBase):
         
         self._center = (self._leftTop[0] - self._verticalSize / 2, self._leftTop[1] + self._horizontalSize / 2)
     
+    def getExpertise(self):
+        return self._expertise
+    
     '''
     Checks if the given location is bounded by this region.
     @param location: The tuple containing the latitude and longitude of the 
@@ -79,6 +83,14 @@ class Region(RegionBase):
                 return True
         return False
     
+    '''
+    Checks the provided bounding box coordinates makes sense, raises Runtime error
+    if the coordinates are invalid
+    '''
+    
+    def _validateCoordinates(self):
+        if not (self._leftTop[0] >= self._rightBottom[0] and self._rightBottom[1] >= self._leftTop[1]):
+            raise RuntimeError('Invalid bounding region !!')
     '''
     Gets the location of the center.
     @return : A tuple  containing the latitude and longitude of the 
@@ -138,6 +150,7 @@ class Region(RegionBase):
     @param region: The parent Region.
     '''
     def setParentRegion(self, region):
+        self._isParent= False
         self._parentRegion = region
     
     '''
@@ -164,10 +177,13 @@ class Region(RegionBase):
                 childRightBottom = (latitude - (verticalSegmentCount + 1) * childRegionVerticalSize,
                                     longitude + childRegionHorizontalSize * (horizontalSegmentCount + 1))
                 
-                childRegionName = self._name + '\'s Child : '+ str(horizontalSegmentCount) + ',' + str(verticalSegmentCount)
-                childRegion = Region(childTopLeft, childRightBottom, childRegionName, False)
-                childRegion.setParentRegion(self)
-                self.isParent(True)
+                childRegionName = self._name + '\'s Child : '+ str(verticalSegmentCount) + ',' + str(horizontalSegmentCount)
+                childRegion = Region(childTopLeft, childRightBottom, childRegionName, False, self.getExpertise())
+                
+                if self._parentRegion == None:
+                    childRegion.setParentRegion(self)
+                else:
+                    childRegion.setParentRegion(self.getParent())
                 horizontalChildRegions.append(childRegion)
             self._childRegions.append(horizontalChildRegions)
 
@@ -198,6 +214,11 @@ class Region(RegionBase):
             # Calculating the actual size that each child region should have in order to cover the whole region
             childRegionVerticalSize = expectedChildRegionVerticalSize + residualVerticalSize / numVerticalSegments 
             childRegionHorizontalSize = expectedChildRegionHorizontalSize + residualHorizontalSize / numHorizontalSegments
+            
+            if numHorizontalSegments == 0 or numVerticalSegments == 0:
+                self._childRegions = []
+                self._childRegions.append(self)
+            
             self._segment(numHorizontalSegments, numVerticalSegments, childRegionHorizontalSize, childRegionVerticalSize)
             
 
