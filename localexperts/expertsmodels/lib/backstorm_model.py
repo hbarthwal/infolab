@@ -3,13 +3,16 @@ Created on Mar 24, 2013
 
 @author: Himanshu Barthwal
 '''
-from region import Region
-from extractdata import DataExtractor
 from math import log, pow
-from bucket_users import BucketUsers
-from operator import itemgetter
-from utility import Utility
+from multiprocessing import Process, Lock, Queue
+import time
 from pprint import pprint
+from utility import Utility
+
+from bucket_users import BucketUsers
+from extractdata import DataExtractor
+from region import Region
+from users_clustering import UsersClustering
 
 class BackStormModelGenerator:
     _dictExpertUsersData = {}
@@ -17,6 +20,7 @@ class BackStormModelGenerator:
     _dictExpertModels = {'tech': [{'C':.8, 'alpha' : 2.9, 'center': (23, -67.9)}]}
     _dataDirectory = ''
     _dataExtractor = None
+    _usersClusterer = None
     
     _usersBucket = None
     _bucketingInterval = 20 
@@ -33,7 +37,7 @@ class BackStormModelGenerator:
     _initialChildRegionVerticalSize = 2
     _initialChildRegionHorizontalSize = 2
     # minimum size of grid
-    _minChildRegionSize = .01
+    _minChildRegionSize = .001
     
     def __init__(self, dataDirectory):
         self._dictExpertiseRegions.clear()
@@ -41,6 +45,8 @@ class BackStormModelGenerator:
         self._dataDirectory = dataDirectory
         self._dataExtractor = DataExtractor(self._dataDirectory)
         self._dataExtractor.populateData(self._dataDirectory)
+        self._dictExpertUsersData = self._dataExtractor.getAllExpertsData()
+        self._usersClusterer = UsersClustering(self._dictExpertUsersData)
         self._createParentRegions()
         Utility.addUserDataToRegions(self._dictExpertUsersData)
 
@@ -170,6 +176,7 @@ class BackStormModelGenerator:
     def _calculateMaxLogLikelihood(self, region):
         #print 'calculating the log likelihood value for region', region.getName()
         self._usersBucket = BucketUsers(region, self._bucketingInterval)
+        #print 'bucketed users'
         return self._goldenSectionSearch(region)
    
     '''
@@ -204,31 +211,58 @@ class BackStormModelGenerator:
                         previousMaxLikelihoodValue = maxLikelihoodValue 
         return (mleRegion, argmaxC, argmaxAlpha)
     
+
+    def _calculateModelForRegion(self, expertise, expertiseRegion, queue):
+        region = expertiseRegion
+        childRegionVerticalSize = self._initialChildRegionVerticalSize
+        childRegionHorizontalSize = self._initialChildRegionHorizontalSize
+        mleRegion = None
+        print region.getName(), ' has lefttop :', region._leftTop, ' rightbottom :', region._rightBottom
+        while childRegionHorizontalSize >= self._minChildRegionSize:
+            region.segmentByChildSize(childRegionHorizontalSize, childRegionVerticalSize)
+            mleRegion, argmaxC, argmaxAlpha = self._getMaximumLikelyChildRegion(region)
+            #print mleRegion.getName(), ' has the largest mle value', 'C = ', argmaxC, ' alpha = ', argmaxAlpha
+            region = mleRegion
+            childRegionHorizontalSize = childRegionHorizontalSize / 2
+            childRegionVerticalSize = childRegionVerticalSize / 2
+        queue.put({'C':argmaxC, 'alpha':argmaxAlpha, 'center':mleRegion.getCenter()})
+       
+        
+
     '''
-    Generates models for given expertise
-    @param expertise: The expertise for which we want to generate Backstorm model.
+    Generates models for given expertises regions
+    @param expertise: The expertise for which we want to generate Backstorm models.
     '''
     def generateModelForExpertise(self, expertise):
         print 'Generating model for', expertise
-        childRegionVerticalSize = self._initialChildRegionVerticalSize
-        childRegionHorizontalSize = self._initialChildRegionHorizontalSize
         # extracting the region for the given expertise
+        processes = []
         expertiseRegions = self._dictExpertiseRegions[expertise]
+        dataQueue = Queue(len(expertiseRegions))
         for expertiseRegion in expertiseRegions:
-            region = expertiseRegion
-            #print region.getName(),' has lefttop :', region._leftTop, ' rightbottom :',region._rightBottom  
-            while childRegionHorizontalSize >= self._minChildRegionSize:
-                region.segmentByChildSize(childRegionHorizontalSize, childRegionVerticalSize)
-                (mleRegion, argmaxC, argmaxAlpha) = self._getMaximumLikelyChildRegion(region)
-                #print mleRegion.getName(), ' has the largest mle value','C = ', argmaxC, ' alpha = ', argmaxAlpha 
-                region = mleRegion
-                childRegionHorizontalSize = childRegionHorizontalSize / 2
-                childRegionVerticalSize = childRegionVerticalSize / 2
+            processName = expertiseRegion.getName() + 'process'
+            process = Process(target=self._calculateModelForRegion, args = (expertise, expertiseRegion, dataQueue), name = processName)
+            processes.append(process)
+            
+        for process in processes:
+            process.start()
         
-        if expertise in self._dictExpertModels:
-            self._dictExpertModels[expertise].append({'C':argmaxC, 'alpha': argmaxAlpha, 'center': mleRegion.getCenter()})
-        else:
-            self._dictExpertModels[expertise] = [{'C':argmaxC, 'alpha': argmaxAlpha, 'center': mleRegion.getCenter()}]
+        while True:
+            areAlive = False
+            for process in processes:
+                areAlive = areAlive or process.is_alive()
+            if areAlive == False:
+                break
+            time.sleep(5)
+            
+        while not dataQueue.empty():
+            modelDict = dataQueue.get()
+            if expertise in self._dictExpertModels:
+                print 'Added Entry to dictionary for ', expertiseRegion.getName()
+                self._dictExpertModels[expertise].append(modelDict)
+            else:
+                print 'Appended entry for', expertiseRegion.getName()
+                self._dictExpertModels[expertise] = [modelDict]
         
         pprint(self._dictExpertModels[expertise]) 
     
@@ -245,34 +279,9 @@ class BackStormModelGenerator:
     '''
     def _createParentRegions(self):
         print 'creating parent Regions'
-        print 'For now we only create one region per expertise'
-        self._dictExpertUsersData = self._dataExtractor.getAllExpertsData()
         for expertise in self._dictExpertUsersData:
-            expertiseRegion = self._createParentRegion(expertise)
-            self._dictExpertiseRegions[expertise] = [expertiseRegion]
-    
-    '''
-    Creates a bounding region for a certain expertise based on the
-    location information in user data.
-    @param expertise: The expertise for which we want to create a bounding
-    region.
-    @return: The bounding region corresponding to the expertise.
-    '''
-    def _createParentRegion(self, expertise):
-        print 'Creating region for ', expertise 
-        usersDataForAllExpertise = self._dictExpertUsersData
-        expertUsersData = usersDataForAllExpertise[expertise]
-        maxLatitude = max(expertUsersData, key=itemgetter(2))[2]
-        minLatiude = min(expertUsersData, key=itemgetter(2))[2]
-        maxLongitude = max(expertUsersData, key=itemgetter(3))[3]
-        minLongitude = min(expertUsersData, key=itemgetter(3))[3]
-        leftTop = (maxLatitude, minLongitude)
-        rightBottom = (minLatiude, maxLongitude)
-        expertRegion = Region(leftTop, rightBottom, expertise + ' Region', True, expertise = expertise)
-        print 'Coordinates : minlatitude = ', minLatiude, ', maxLatitude = ', maxLatitude
-        print 'minlongitude = ', minLongitude, ', maxlongitude = ', maxLongitude
-        return expertRegion
-        
+            expertiseRegions = self._usersClusterer.getExpertRegions(expertise)
+            self._dictExpertiseRegions[expertise] = expertiseRegions
     
     '''
     Gets the expertise for a bounding region
@@ -286,14 +295,15 @@ class BackStormModelGenerator:
         pprint(self._dictExpertModels)
     
 def main():
-    print 'Main'   
+    print 'Main'
     dataDirectory = 'data/'
     modelGenerator = BackStormModelGenerator(dataDirectory)
     #modelGenerator.generateModelForExpertise('aggie')
-    modelGenerator.generateModelForExpertise('rap')
-    modelGenerator.generateModelForExpertise('vc')
+    start = time.time()
+    modelGenerator.generateModelForExpertise('art')
+    print 'Time Taken:', time.time() - start
     #modelGenerator.generateModelForExpertise('longhorn')
-    modelGenerator.display()
+    #modelGenerator.display()
 
 
 if __name__ == "__main__":

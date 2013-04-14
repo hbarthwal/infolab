@@ -115,6 +115,7 @@ class Region(RegionBase):
     def getChildRegion(self, horizontalIndex, verticalIndex):
         if len(self._childRegions) == 0:
             return None
+        
         if horizontalIndex < len(self._childRegions[0]) and verticalIndex < len(self._childRegions):
             return self._childRegions[horizontalIndex][verticalIndex]
         return None
@@ -208,17 +209,17 @@ class Region(RegionBase):
             numHorizontalSegments = int(round(self._horizontalSize / expectedChildRegionHorizontalSize)) 
             numVerticalSegments =  int(round(self._verticalSize / expectedChildRegionVerticalSize))
             
+            if numHorizontalSegments == 0 or numVerticalSegments == 0:
+                self._childRegions = []
+                self._childRegions.append([self])
+                return
+                
             residualVerticalSize = self._verticalSize - numVerticalSegments * expectedChildRegionVerticalSize
             residualHorizontalSize = self._horizontalSize - numHorizontalSegments * expectedChildRegionHorizontalSize
             
             # Calculating the actual size that each child region should have in order to cover the whole region
             childRegionVerticalSize = expectedChildRegionVerticalSize + residualVerticalSize / numVerticalSegments 
             childRegionHorizontalSize = expectedChildRegionHorizontalSize + residualHorizontalSize / numHorizontalSegments
-            
-            if numHorizontalSegments == 0 or numVerticalSegments == 0:
-                self._childRegions = []
-                self._childRegions.append(self)
-            
             self._segment(numHorizontalSegments, numVerticalSegments, childRegionHorizontalSize, childRegionVerticalSize)
             
 
