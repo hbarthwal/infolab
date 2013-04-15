@@ -212,7 +212,12 @@ class BackStormModelGenerator:
         return (mleRegion, argmaxC, argmaxAlpha)
     
 
-    def _calculateModelForRegion(self, expertise, expertiseRegion, queue):
+    '''
+    Calculates the backstorm for a region and puts the calculted result into the queue.
+    @param expertiseRegion: This is the region for which the backstorm model is calculated.
+    @param queue: The queue in which the calculated model's data is pushed.
+    '''
+    def _calculateModelForRegion(self, expertiseRegion, queue):
         region = expertiseRegion
         childRegionVerticalSize = self._initialChildRegionVerticalSize
         childRegionHorizontalSize = self._initialChildRegionHorizontalSize
@@ -225,9 +230,59 @@ class BackStormModelGenerator:
             region = mleRegion
             childRegionHorizontalSize = childRegionHorizontalSize / 2
             childRegionVerticalSize = childRegionVerticalSize / 2
-        queue.put({'C':argmaxC, 'alpha':argmaxAlpha, 'center':mleRegion.getCenter()})
+        
+        # Putting the resultant computed model into the queue
+        queue.put({'C':argmaxC, 
+                   'alpha':argmaxAlpha, 
+                   'center':mleRegion.getCenter(), 
+                   'regionName': expertiseRegion.getName() })
        
         
+    '''
+    Spawn a subprocess for every region in the provided 'expertiseRegions' list
+    and performs parallel computation then puts the results in to the provided 
+    dataQueue asynchronously.
+    @param expertiseRegions: A list of regions for which we want to compute the 
+    backstorm model
+    
+    @param dataQueue: A queue which used by all the subprocess to store their results
+    
+    '''
+   
+    def _spawnSubprocesses(self, expertiseRegions, dataQueue):
+        processes = []
+        
+        for expertiseRegion in expertiseRegions:
+            processName = expertiseRegion.getName() + 'process'
+            process = Process(target=self._calculateModelForRegion, args=(expertiseRegion, dataQueue), name=processName)
+            processes.append(process)
+        
+        for process in processes:
+            process.start()
+        
+        return processes
+    
+    '''
+    The method reads the dataQueue and populates the '_dictExpertModels' dictionary
+    with the results present in the dataQueue.
+    @param expertise: The expertise for which the model data is residing in the dataQueue.
+    @param dataQueue: The queue in which the model data is present
+    '''
+
+    def _populateResultsFromQueue(self, expertise, dataQueue):
+    # All the children processes have finished their computation now
+    # lets populate the dictionary with the results that they have
+    # pushed into the queue.
+        while not dataQueue.empty():
+            modelDict = dataQueue.get()
+            if expertise in self._dictExpertModels:
+                print 'Added Entry to dictionary for ', modelDict['regionName']
+                self._dictExpertModels[expertise].append(modelDict)
+            else:
+                print 'Appended entry for', modelDict['regionName']
+                self._dictExpertModels[expertise] = [modelDict]
+        
+        pprint(self._dictExpertModels[expertise])
 
     '''
     Generates models for given expertises regions
@@ -235,18 +290,13 @@ class BackStormModelGenerator:
     '''
     def generateModelForExpertise(self, expertise):
         print 'Generating model for', expertise
-        # extracting the region for the given expertise
-        processes = []
+        # extracting the regions for the given expertise
         expertiseRegions = self._dictExpertiseRegions[expertise]
         dataQueue = Queue(len(expertiseRegions))
-        for expertiseRegion in expertiseRegions:
-            processName = expertiseRegion.getName() + 'process'
-            process = Process(target=self._calculateModelForRegion, args = (expertise, expertiseRegion, dataQueue), name = processName)
-            processes.append(process)
-            
-        for process in processes:
-            process.start()
+        processes = self._spawnSubprocesses(expertiseRegions, dataQueue)
         
+        #  Here the current process sleeps while the subprocesses 
+        #  are busy in computation
         while True:
             areAlive = False
             for process in processes:
@@ -254,17 +304,8 @@ class BackStormModelGenerator:
             if areAlive == False:
                 break
             time.sleep(5)
-            
-        while not dataQueue.empty():
-            modelDict = dataQueue.get()
-            if expertise in self._dictExpertModels:
-                print 'Added Entry to dictionary for ', expertiseRegion.getName()
-                self._dictExpertModels[expertise].append(modelDict)
-            else:
-                print 'Appended entry for', expertiseRegion.getName()
-                self._dictExpertModels[expertise] = [modelDict]
         
-        pprint(self._dictExpertModels[expertise]) 
+        self._populateResultsFromQueue(expertise, dataQueue) 
     
     '''
     Generates models for all expertise extracted from the usersdata
@@ -300,7 +341,7 @@ def main():
     modelGenerator = BackStormModelGenerator(dataDirectory)
     #modelGenerator.generateModelForExpertise('aggie')
     start = time.time()
-    modelGenerator.generateModelForExpertise('art')
+    modelGenerator.generateModelForAllExpertise()
     print 'Time Taken:', time.time() - start
     #modelGenerator.generateModelForExpertise('longhorn')
     #modelGenerator.display()
