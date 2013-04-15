@@ -19,8 +19,7 @@ class BucketUsers:
     _usersData = None
     
     _region = None
-    #                   {radius: (approxDistance, averageConfidence)}
-    _bucketedUserData = {5: {'averageDistance':3.5, 'confidenceSum': .786}}
+    _bucketedUserData = {'5-10': {'averageDistance':3.5, 'confidenceSum': .786}}
     
     def __init__(self, region, interval):
         self._bucketedUserData.clear()
@@ -30,13 +29,11 @@ class BucketUsers:
         self._bucketUserData()
         self._normalizeBuckets()
         
-    
     '''
     Gets the bucket key for a user located at the given distance.
     @param distance: The distance at which the user is located
     @return: The corresponding key for the bucket in which the user will be 
              put in.
-    
     '''
     def _getBucketKey(self, distance):
         index = int(distance / self._interval)
@@ -46,7 +43,6 @@ class BucketUsers:
     '''
     Bucket-wise averages the distances of all the expert and non-expert users 
     '''
-
     def _normalizeBuckets(self):
         # Now we average out all the users distances and confidences
         # within each bucket
@@ -148,7 +144,6 @@ class BucketUsers:
     '''    
     def getUsersBucket(self):
         return self._bucketedUserData
-
 
 def main():
     print 'Main'
