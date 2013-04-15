@@ -29,8 +29,6 @@ class Region(RegionBase):
     # All the regions which are formed after segmentation cannot be parent Regions
     _parentRegion = None
     
-    
-    
     # A row major matrix for the child regions resulting from segmentation 
     # of the parent region
     _childRegions = []
@@ -47,7 +45,11 @@ class Region(RegionBase):
     
     @param isParent: Indicates if this is the root region.
     '''
-    def __init__(self, topLeft, rightBottom, name = 'New Region', isParent = True, expertise = 'Jacks Of All Trades'):
+    def __init__(self, topLeft, rightBottom, 
+                 name = 'New Region', 
+                 isParent = True, 
+                 expertise = 'Jacks Of All Trades'):
+        
         self._isParent = isParent
         self._name = name
         self._rightBottom = rightBottom
@@ -87,10 +89,10 @@ class Region(RegionBase):
     Checks the provided bounding box coordinates makes sense, raises Runtime error
     if the coordinates are invalid
     '''
-    
     def _validateCoordinates(self):
         if not (self._leftTop[0] >= self._rightBottom[0] and self._rightBottom[1] >= self._leftTop[1]):
             raise RuntimeError('Invalid bounding region !!')
+   
     '''
     Gets the location of the center.
     @return : A tuple  containing the latitude and longitude of the 
@@ -222,7 +224,6 @@ class Region(RegionBase):
             childRegionHorizontalSize = expectedChildRegionHorizontalSize + residualHorizontalSize / numHorizontalSegments
             self._segment(numHorizontalSegments, numVerticalSegments, childRegionHorizontalSize, childRegionVerticalSize)
             
-
     def getName(self):
         return self._name
     
