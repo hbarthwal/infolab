@@ -3,18 +3,10 @@ Created on Mar 24, 2013
 
 @author: Himanshu Barthwal
 '''
-'''
-This class is inherited by the Region class.
-The purpose of this class is to hold the data inorder
-to avoid the replication of the user data when we segment 
-each region.
-'''
-class RegionBase:
-    # contains tuples containing userid, user confidence, latitude , longitude, 
-    # expertise (True if the user belongs the expertise of this region) in that order
-    _usersData = [(77463542,0.98,67.9,-76.9,'aggie')]
-    
-class Region(RegionBase):
+
+from userdata import UsersData
+
+class Region:
     _name = ''
     _leftTop = (0, 0)
     _rightBottom = (0, 0)
@@ -41,22 +33,29 @@ class Region(RegionBase):
     @param rightBottom:The tuple containing the latitude, longitude for the
     rightBottom point of the bounding region in that order.
     
+    @param center: The center of the region. If the value is not provided then the
+    center is calculated to be the geographical center of the region based on 
+    its latitudinal and longitueinal spam.
+    
     @param name: Optional argument which sets the name for the region.
     
     @param isParent: Indicates if this is the root region.
     '''
-    def __init__(self, topLeft, rightBottom, 
+    def __init__(self, topLeft, rightBottom,center = None, 
                  name = 'New Region', 
                  isParent = True, 
                  expertise = 'Jacks Of All Trades'):
         
         self._isParent = isParent
-        self._name = name
+        self._name = name.strip()
         self._rightBottom = rightBottom
         self._leftTop = topLeft
         self._expertise = expertise
         self._validateCoordinates()
         self._calculateRegionAttributes()
+        
+        if center is not None:
+            self._center = center
     
     '''
     Perform calculations for region attirbutes like horizontal size , 
@@ -79,10 +78,37 @@ class Region(RegionBase):
     location in that order.
     @return: True if the given location is bounded by this region, False otherwise.
     '''
-    def boundsLocation(self, location):
+    def boundsLocation(self, userData):
+        #print 'Checking boundsLocation for :', userData
+        if UsersData.isPartitioned():
+            #print 'data is partitioned'
+            # If the users data has been partitioned and each user has a label that 
+            # corresponds to the region it is assigned to
+            if userData[4] == self._expertise:
+                #print 'User is an expert'
+                
+                # If this user is an expert then it will have the label of the region
+                # to which it belongs to. So we just compare the label to the name of the current 
+                # region
+                if userData[5] ==  self._name:
+                    #print 'User belongs to the region ', self._name
+                    return True
+                else:
+                    #print 'User does not belong to region', self._name
+                    return False
+            else:
+                # If this user is not an expert then we only consider its location
+                # to judge whether it belongs to the region or not
+                #print 'User is not an expert'
+                pass
+        
+        #print 'Checking location'
+        location = (userData[2], userData[3])
         if location[0] >= self._rightBottom[0] and location[0] <= self._leftTop[0] :
             if location[1] <= self._rightBottom[1] and location[1] >= self._leftTop[1]:
+                #print 'Passed!!'
                 return True
+        #print 'Failed!!'
         return False
     
     '''
@@ -121,18 +147,6 @@ class Region(RegionBase):
         if horizontalIndex < len(self._childRegions[0]) and verticalIndex < len(self._childRegions):
             return self._childRegions[horizontalIndex][verticalIndex]
         return None
-    
-    @staticmethod
-    def getUsersData():
-        return RegionBase._usersData
-    
-    @staticmethod
-    def addUserData(userData):
-        RegionBase._usersData.append(userData)
-        
-    @staticmethod   
-    def clearUsersData():
-        RegionBase._usersData = []
         
     '''
     Gets the parent or the root region for this region.
@@ -181,7 +195,7 @@ class Region(RegionBase):
                                     longitude + childRegionHorizontalSize * (horizontalSegmentCount + 1))
                 
                 childRegionName = self._name + '\'s Child : '+ str(verticalSegmentCount) + ',' + str(horizontalSegmentCount)
-                childRegion = Region(childTopLeft, childRightBottom, childRegionName, False, self.getExpertise())
+                childRegion = Region(childTopLeft, childRightBottom, None ,childRegionName, False, self.getExpertise())
                 
                 if self._parentRegion == None:
                     childRegion.setParentRegion(self)
@@ -232,7 +246,7 @@ def main():
         region = Region((57.93, -116.98), (43.2, -73.15), 'Test Region')
         print 'Region _center is ', region.getCenter()
         region.segmentByChildSize(5, 8)
-        Region.addUserData((23,9,85,84,'aggie'))
+        Region.addUserData([23,9,85,84,'aggie'])
         child = region.getChildRegion(0,0)
         child.segmentByChildSize(2,2)
         print 'Centres for the regions:'

@@ -7,7 +7,7 @@ from expertsmodels.lib.extractdata import DataExtractor
 
 class ExpertsDataAPI:
     
-    _dataDirectory = '/home/himanshu/workspace/infolab/localexperts/expertsmodels/lib/data/expert_locations'
+    _dataDirectory = '/home/himanshu/workspace/infolab/localexperts/expertsmodels/lib/data/'
 
     def loadData(self):
         print 'Loading the experts users data'

@@ -5,8 +5,9 @@ Created on Apr 11, 2013
 '''
 from extractdata import DataExtractor
 from region import Region
+from userdata import UsersData
 from utility import Utility
-from pprint import pprint
+import time
 
 class BucketUsers:
     
@@ -25,7 +26,7 @@ class BucketUsers:
         self._bucketedUserData.clear()
         self._region = region
         self._interval = interval
-        self._usersData = Region.getUsersData()
+        self._usersData = UsersData.getUsersData()
         self._bucketUserData()
         self._normalizeBuckets()
         
@@ -39,24 +40,33 @@ class BucketUsers:
         index = int(distance / self._interval)
         bucketKey = str(self._interval * index) + '-' + str(self._interval * (index + 1))
         return bucketKey
-        
+       
+    def printBucket(self):
+        for bucketKey in self._bucketedUserData:
+            count = 0
+            confindenceSum = 0 
+            if 'expert' in self._bucketedUserData[bucketKey]:
+                count = self._bucketedUserData[bucketKey]['expert']['usersCount']
+                confindenceSum = self._bucketedUserData[bucketKey]['expert']['confidenceSum']
+            print 'Bucket ', bucketKey,' has ',count, ' users with confindenceSum = ',confindenceSum
     '''
     Bucket-wise averages the distances of all the expert and non-expert users 
     '''
     def _normalizeBuckets(self):
         # Now we average out all the users distances and confidences
         # within each bucket
+        totalNonExpertCount = 0
         for bucketKey in self._bucketedUserData:
             usersBucket = self._bucketedUserData[bucketKey]
             
             expertUsersBucket = usersBucket['expert']
-            expertUsersCount = float(expertUsersBucket.pop('usersCount'))
+            expertUsersCount = float(expertUsersBucket['usersCount'])
             expertUsersDistanceSum = expertUsersBucket.pop('distanceSum')
             
             nonExpertUsersBucket = usersBucket['nonexpert']
-            nonExpertUsersCount = float(nonExpertUsersBucket.pop('usersCount'))            
+            nonExpertUsersCount = float(nonExpertUsersBucket['usersCount'])            
             nonExpertUsersDistanceSum = nonExpertUsersBucket.pop('distanceSum')
-             
+            totalNonExpertCount += nonExpertUsersCount 
             if expertUsersCount != 0:
                 expertUsersBucket['averageDistance'] = expertUsersDistanceSum / expertUsersCount
             else:
@@ -98,6 +108,7 @@ class BucketUsers:
     '''
     def _bucketUserData(self):
         expertise = self._region.getExpertise()
+        #print 'bucketing for ', self._region.getName()
         for userData in self._usersData:
             userLocation = (userData[2], userData[3])
             # print userData
@@ -109,7 +120,8 @@ class BucketUsers:
                 parentRegion = self._region.getParent()
             
             
-            if parentRegion.boundsLocation(userLocation):
+            if parentRegion.boundsLocation(userData):
+                
                 # if the user data is corresponding to a location 
                 # belonging to the expertise region only then we include it in
                 # our calculation
@@ -135,6 +147,7 @@ class BucketUsers:
                 else:
                     # calculating the sum of all users' distance and confidence within a 
                     # certain radius denoted by the bucketKey
+                    #print 'Incrementing------------------------------------'
                     self._bucketedUserData[distanceBucketKey][requiredKey]['distanceSum'] += userDistance
                     self._bucketedUserData[distanceBucketKey][requiredKey]['confidenceSum'] += userConfidence
                     self._bucketedUserData[distanceBucketKey][requiredKey]['usersCount'] += 1
@@ -148,11 +161,13 @@ class BucketUsers:
 def main():
     print 'Main'
     dataDirectory = 'data/'
+    start = time()
     data = DataExtractor(dataDirectory)
     expertUsersData = data.getAllExpertsData()
-    region = Region((50, -129), (27, -61), expertise='aggie')
-    Utility.addUserDataToRegions(expertUsersData)
+    region = Region((50, -129), (27, -61), expertise='tech')
+    UsersData.addUserDataToRegions(expertUsersData)
     usersBucket = BucketUsers(region, 10)
+    print time() - start,' is the time taken'
     # pprint(usersBucket.getUsersBucket())
     
     

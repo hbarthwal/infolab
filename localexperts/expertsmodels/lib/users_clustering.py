@@ -14,13 +14,7 @@ class UsersClustering:
     
     _dictExpertUsersData = {'aggie':[(1445345,.6678, 45,-63)]}
     _dictClusters = {}
-    _dictClusterNum = {'coach':9 , 'art':13, 'rap':7, 'player':2, 'vc':6, 'lawyer':8, 'foodie':8, 'nba':7,
-                       'economist':4, 'nerd':3, 'hippie':1, 'psychic':7, 'wizard':3, 'actor':7, 'music':10,
-                       'farmer':7, 'longhorn':3, 'googler':4, 'economy':4, 'football':5, 'finance':7, 'musician':12,
-                       'geek':7, 'aggie':4, 'news':5, 'data':6, 'nfl':6, 'entrepreneur':8, 'consultant':7,
-                       'professor':5, 'responder':2, 'dog':7, 'politic':8, 'academia':7, 'tech':8, 'artist':10,
-                       'travel':11, 'car dealer':6}
-
+  
     _kmeans = None
     
     def __init__(self, dictExpertUsersData):
@@ -67,7 +61,7 @@ class UsersClustering:
         index = 0
         for clusterName in self._dictClusters:
             expertUsersData = self._dictClusters[clusterName]
-            region = self._createExpertRegion(expertUsersData, expertise, index)
+            region = self._createExpertRegionWithRandomCenters(expertUsersData, expertise, index)
             #print 'Created ', region.getName(),' with center', region.getCenter()
             expertRegions.append(region)
             index += 1
@@ -81,7 +75,7 @@ class UsersClustering:
     region.
     @return: The bounding region corresponding to the expertise.
     '''
-    def _createExpertRegion(self, expertUsersData, expertise, index):
+    def _createExpertRegionWithRandomCenters(self, expertUsersData, expertise, index):
         #print expertUsersData
         maxLatitude = max(expertUsersData, key=itemgetter(2))[2]
         minLatiude = min(expertUsersData, key=itemgetter(2))[2]

@@ -61,7 +61,7 @@
 			    console.log("Clicked Button");
 			    var map = new google.maps.Map($("#heatmapArea")[0], myOptions);
 			    var heatmap = new HeatmapOverlay(map, {
-					"radius" : 20,
+					"radius" : 10,
 					"visible" : true,
 					"opacity" : 70
 				});
@@ -93,7 +93,7 @@
 	<table>
 		<tr>
 			<td><div>
-					<input type="text" id="txtExpertise" />
+					<input type="text" id="txtExpertise" style="height: 31px; width: 183px; "/>
 				</div></td>
 			<td>
 				<div>

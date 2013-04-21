@@ -5,9 +5,23 @@ Created on Apr 13, 2013
 '''
 
 from math import radians, cos, sin, asin, sqrt
-from region import Region
 
 class Utility:
+    '''
+    Evaluates the user confidence based on the Backstorm model.
+    '''
+    @staticmethod
+    def getModelValue(model, userData, isExpert):
+        C = model['C']
+        alpha = model['alpha']
+        center = model['center']
+        userLocation = (userData[2], userData[3])
+        distance = Utility.haversine(center[0],center[1], userLocation[0], userLocation[1])
+        value = C * pow(distance + 0.9, -alpha)
+        if isExpert:
+            return value
+        else :
+            return 1 - value
     
     """
     Calculate the great circle distance between two points 
@@ -34,14 +48,3 @@ class Utility:
         km = 6367 * c
         return km    
     
-    '''
-    Adds the extracted user data to the expert regions 
-    '''   
-    @staticmethod 
-    def addUserDataToRegions(usersDataForAllExpertise):
-        # Add all the user data to the region
-        print 'Adding all the user data to Region'
-        for expertise in usersDataForAllExpertise:
-            for userData in usersDataForAllExpertise[expertise]:
-                Region.addUserData((userData[0], userData[1], userData[2], userData[3], userData[4]))
-        print 'Added total ', len(Region.getUsersData()), ' entries to Region user data'
