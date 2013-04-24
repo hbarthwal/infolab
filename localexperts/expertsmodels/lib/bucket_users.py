@@ -8,6 +8,7 @@ from region import Region
 from userdata import UsersData
 from utility import Utility
 import time
+from pprint import pprint
 
 class BucketUsers:
     
@@ -20,11 +21,13 @@ class BucketUsers:
     _usersData = None
     
     _region = None
+    
     _bucketedUserData = {'5-10': {'averageDistance':3.5, 'confidenceSum': .786}}
     
     def __init__(self, region, interval):
         self._bucketedUserData.clear()
         self._region = region
+        self._center = self._region.getCenter()
         self._interval = interval
         self._usersData = UsersData.getUsersData()
         self._bucketUserData()
@@ -40,15 +43,8 @@ class BucketUsers:
         index = int(distance / self._interval)
         bucketKey = str(self._interval * index) + '-' + str(self._interval * (index + 1))
         return bucketKey
-       
-    def printBucket(self):
-        for bucketKey in self._bucketedUserData:
-            count = 0
-            confindenceSum = 0 
-            if 'expert' in self._bucketedUserData[bucketKey]:
-                count = self._bucketedUserData[bucketKey]['expert']['usersCount']
-                confindenceSum = self._bucketedUserData[bucketKey]['expert']['confidenceSum']
-            print 'Bucket ', bucketKey,' has ',count, ' users with confindenceSum = ',confindenceSum
+    
+    
     '''
     Bucket-wise averages the distances of all the expert and non-expert users 
     '''
@@ -107,7 +103,10 @@ class BucketUsers:
     will be ignored. 
     '''
     def _bucketUserData(self):
+        #print 'Bucketing ', len(self._usersData), ' users !'
+        #count = 0
         expertise = self._region.getExpertise()
+        
         #print 'bucketing for ', self._region.getName()
         for userData in self._usersData:
             userLocation = (userData[2], userData[3])
@@ -121,13 +120,12 @@ class BucketUsers:
             
             
             if parentRegion.boundsLocation(userData):
-                
+                #count += 1
                 # if the user data is corresponding to a location 
                 # belonging to the expertise region only then we include it in
                 # our calculation
                 userConfidence = userData[1]
-                center = self._region.getCenter()
-                userDistance = Utility.haversine(center[1], center[0], userLocation[1], userLocation[0])
+                userDistance = Utility.haversine(self._center[1], self._center[0], userLocation[1], userLocation[0])
                 isExpert = (expertise == userData[4])
                 distanceBucketKey = self._getBucketKey(userDistance)
                 requiredKey, nonRequiredKey = self._getKeys(isExpert)
@@ -151,24 +149,52 @@ class BucketUsers:
                     self._bucketedUserData[distanceBucketKey][requiredKey]['distanceSum'] += userDistance
                     self._bucketedUserData[distanceBucketKey][requiredKey]['confidenceSum'] += userConfidence
                     self._bucketedUserData[distanceBucketKey][requiredKey]['usersCount'] += 1
-        
+        #print count,' users were bucketed'
     '''
     Returns the bucket dictionary for the users.
     '''    
     def getUsersBucket(self):
         return self._bucketedUserData
+    
+    
+    '''
+    For testing and debugging purposes.
+    '''
+       
+    def printBuckets(self):
+        totalExpertsCount = 0
+        totalNonExpertsCount = 0
+        for bucketKey in self._bucketedUserData:
+            expertCount = 0
+            expertConfindenceSum = 0 
+            
+            nonExpertCount = 0
+            nonExpertConfindenceSum = 0 
+            if 'expert' in self._bucketedUserData[bucketKey]:
+                expertCount = self._bucketedUserData[bucketKey]['expert']['usersCount']
+                expertConfindenceSum = self._bucketedUserData[bucketKey]['expert']['confidenceSum']
+                totalExpertsCount += expertCount
+                #print 'Bucket ', bucketKey,' has ',expertCount, 'experts with expertConfindenceSum = ',expertConfindenceSum
+                
+            if 'nonexpert' in self._bucketedUserData[bucketKey]:
+                nonExpertCount = self._bucketedUserData[bucketKey]['nonexpert']['usersCount']
+                nonExpertConfindenceSum = self._bucketedUserData[bucketKey]['nonexpert']['confidenceSum']
+                totalNonExpertsCount += nonExpertCount
+                #print 'Bucket ', bucketKey,' has ',nonExpertCount, 'nonexperts with expertConfindenceSum = ',nonExpertConfindenceSum
+        
+        print 'Total experts:', totalExpertsCount, ' Total non experts:', totalNonExpertsCount
 
 def main():
     print 'Main'
     dataDirectory = 'data/'
-    start = time()
+    start = time.time()
     data = DataExtractor(dataDirectory)
     expertUsersData = data.getAllExpertsData()
-    region = Region((50, -129), (27, -61), expertise='tech')
+    region = Region((50, -125), (25.255, -60),center = (30,-60) ,expertise='vc')
     UsersData.addUserDataToRegions(expertUsersData)
-    usersBucket = BucketUsers(region, 10)
-    print time() - start,' is the time taken'
-    # pprint(usersBucket.getUsersBucket())
+    usersBucket = BucketUsers(region, 50)
+    print time.time() - start,' is the time taken'
+    usersBucket.printBuckets()
     
     
 if __name__ == "__main__":

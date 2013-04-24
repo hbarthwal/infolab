@@ -5,35 +5,13 @@ Created on Mar 24, 2013
 '''
 from os import listdir
 from os.path import isfile, join, dirname
+from settings import Settings
 
 class DataExtractor:
 #                 { expertise :[( userId,   confidence,  latitude, longitude),(..)..]}
     _expertUsersData = {'tech' : [[23423523, .98763, -98.466 , 97.577]]}
     _dataDirectory = ''
-    _dataFileNamePartOne = 'expert_locations_for_'
-    _dataFileNamePartTwo = '_full_data.txt'
     _dictRegionUserDistribution = {}
-    _filterList = [
-                      { 
-                       'leftTopCoordinates' : (50, -125),
-                       'rightBottomCoordinates' : (49.255, -122),
-                       'region' : 'USA'
-                      }
-                   ]
-    '''
-                      ,
-                      { 
-                       'leftTopCoordinates' : (39.92, -124.96),
-                       'rightBottomCoordinates' : (34.13, -117.73),
-                       'region' : 'Bay Area'
-                      },
-                      { 
-                       'leftTopCoordinates' : (37.3, -106.7),
-                       'rightBottomCoordinates' : (25.8, -89.0),
-                       'region':'Texas'
-                      }
-    '''
-                    
     
     '''
     Instantiates the object for DataExtractor
@@ -54,14 +32,14 @@ class DataExtractor:
 
     def _initializeRegionDistributionDict(self, expertise):
         dictRegionUserDistribution = {}
-        for filterCoordinates in self._filterList:
+        for filterCoordinates in Settings._filterList:
             region = filterCoordinates['region']
             dictRegionUserDistribution[region] = 0
         self._dictRegionUserDistribution[expertise] = dictRegionUserDistribution
         return filterCoordinates, region
 
     def _isFilterable(self, userData):
-        for filterCoordinates in self._filterList:        
+        for filterCoordinates in Settings._filterList:        
             rightBottomCoordinates = filterCoordinates['rightBottomCoordinates']
             leftTopCoordinates = filterCoordinates['leftTopCoordinates']
             region = filterCoordinates['region']
@@ -97,7 +75,7 @@ class DataExtractor:
     @return: The filename corresponding to the expertise 
     '''        
     def _getFileNameFromExpertise(self, expertise):
-        filename = self._dataFileNamePartOne + expertise + self._dataFileNamePartTwo
+        filename = Settings._dataFileNamePartOne + expertise + Settings._dataFileNamePartTwo
         return join(self._dataDirectory, filename)
     
     '''
@@ -106,8 +84,8 @@ class DataExtractor:
     '''          
     def _extractExpertise(self, filename):
         filename = filename.replace(dirname(filename) + '/','')
-        filename = filename.replace(self._dataFileNamePartOne,'')
-        expertise = filename.replace(self._dataFileNamePartTwo, '')
+        filename = filename.replace(Settings._dataFileNamePartOne,'')
+        expertise = filename.replace(Settings._dataFileNamePartTwo, '')
         return expertise
         
     '''
@@ -131,6 +109,8 @@ class DataExtractor:
         count = 0
         with open(filename) as expertsData:
             for expertData in expertsData:
+                if count == Settings._maxExperts:
+                    break
                 rawData = expertData.split('\t')
                 userId = rawData[0].strip()
                 expertRank = rawData[1].strip()
@@ -140,14 +120,12 @@ class DataExtractor:
                 # We restrict our study to United States only
                 if self._isFilterable(userData):
                     expertsDataList.append(userData)
-                else:
                     count += 1
-        #print expertise, ': Got ', len(expertsDataList), ' users out of ', count, ' filtered !!'
+                    
         if len(expertsDataList) > 0:
             self._expertUsersData[expertise] = expertsDataList
         
-        if expertise == 'tech':
-            print 'The region distribution of the points for ', expertise ,' is :', self._dictRegionUserDistribution[expertise]
+        print 'The region distribution of the points for ', expertise ,' is :', self._dictRegionUserDistribution[expertise]
     
     '''
     Displays the extracted data
@@ -180,8 +158,8 @@ def main():
     print 'Main'
     dataDirectory =  'data/'
     data = DataExtractor(dataDirectory)
-    data.getExpertUsersData('tech')
-        
+    data.getExpertUsersData('vc')
+    data.displayData('vc')
     
 if __name__ == "__main__":
     main()    

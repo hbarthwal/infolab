@@ -4,11 +4,10 @@ Created on Mar 24, 2013
 @author: Himanshu Barthwal
 '''
 from math import log, pow
-from multiprocessing import Process, Queue, Lock
+from multiprocessing import Process, Queue
 from random import randint
 from pprint import pprint
 from operator import itemgetter
-from threading import Thread 
 import time
 
 from bucket_users import BucketUsers
@@ -16,8 +15,8 @@ from extractdata import DataExtractor
 from region import Region
 from userdata import UsersData
 from users_clustering import UsersClustering
-import map_plots 
-
+#import map_plots 
+from settings import Settings
 
 class BackStormModelGenerator:
     _dictExpertUsersData = {}
@@ -25,28 +24,9 @@ class BackStormModelGenerator:
     _dictExpertModels = {'tech': [{'C':.8, 'alpha' : 2.9, 'center': (23, -67.9)}]}
     _dataDirectory = ''
     _dataExtractor = None
-    _usersClusterer = None
-    
-    _numberOfIterations = 10
-    _numberOfcenters = 10
-    
+    _usersClusterer = None    
     _usersBucket = None
-    _bucketingInterval = 5
-    # min - max values for the C and alpha parameter 
-    _alphaMin = 0.01
-    _alphaMax = 9.99
-    _Cmin = 0.001
-    _Cmax = 0.999
-    # tolerance values for the golden section search algorithm
-    _Ctolerance = .001
-    _alphaTolerance = 0.001
     
-    # intial size of each grid
-    _initialChildRegionVerticalSize = 2
-    _initialChildRegionHorizontalSize = 2
-    # minimum size of grid
-    _minChildRegionSize = .1
-    lock = Lock()
     def __init__(self, dataDirectory):
         self._dictExpertiseRegions.clear()
         self._dictExpertModels.clear()
@@ -75,8 +55,7 @@ class BackStormModelGenerator:
         usersDataBuckets = self._usersBucket.getUsersBucket()
         if childRegion.getName() != self._usersBucket._region.getName():
             print childRegion.getName(), ' is using the bucket for ', self._usersBucket._region.getName()
-            
-        constant = log(C)
+        
         for bucketKey in usersDataBuckets:
             usersBucket = usersDataBuckets[bucketKey] 
 
@@ -88,36 +67,38 @@ class BackStormModelGenerator:
                 expertUsersBucket = usersBucket['expert'] 
                 expertUsersConfidenceSum = expertUsersBucket['confidenceSum']
                 expertUserDistance = expertUsersBucket['averageDistance']
-                #expertUserCount = expertUsersBucket['usersCount']
-                #try:
+                # expertUserCount = expertUsersBucket['usersCount']
+                # try:
                 if expertUserDistance <= 1:
                     expertUserDistance = 1.01
-                expertModelValue =   expertUsersConfidenceSum * (constant - alpha * log(expertUserDistance))
-                #except:
-                    #print 'Expert: distance->', expertUserDistance, ' confidence->' , expertUsersConfidenceSum
-                    #print 'usersBucketKey', bucketKey
-                    #raise
+                expertModelValue = expertUsersConfidenceSum * log(C * pow(expertUserDistance, -alpha))
+                # except:
+                    # print 'Expert: distance->', expertUserDistance, ' confidence->' , expertUsersConfidenceSum
+                    # print 'usersBucketKey', bucketKey
+                    # raise
             
             if 'nonexpert' in usersBucket:    
-                print '*************************** Non expert *****************'
                 nonExpertUsersBucket = usersBucket['nonexpert']
                 nonExpertUsersConfidenceSum = nonExpertUsersBucket['confidenceSum']
                 nonExpertUserDistance = nonExpertUsersBucket['averageDistance']
-                #nonExpertUserCount = nonExpertUsersBucket['usersCount']
-                #try:
+                # nonExpertUserCount = nonExpertUsersBucket['usersCount']
+                # try:
                 if nonExpertUserDistance <= 1:
                     nonExpertUserDistance = 1.01
                 nonExpertModelValue = (1 - C * pow(nonExpertUserDistance, -alpha))
                 nonExpertModelValue = nonExpertUsersConfidenceSum * log(nonExpertModelValue)
-            #except:
-                    #print 'Non Expert: distance->', nonExpertUserDistance, ' confidence->' , nonExpertUsersConfidenceSum  
-                    #print 'usersBucketKey', bucketKey
-                    #raise
-            
+            # except:
+                    # print 'Non Expert: distance->', nonExpertUserDistance, ' confidence->' , nonExpertUsersConfidenceSum  
+                    # print 'usersBucketKey', bucketKey
+                    # raise
+            #print 'Expert Value:', expertModelValue
             expertValueSum += expertModelValue
             nonExpertValueSum += nonExpertModelValue
-            
+        #print 'C = ', C, 'alpha = ', alpha
+        #print 'Expert likelihood component:' , expertValueSum  
+        #print 'non Expert likelihood component:' , nonExpertValueSum  
         functionValue = expertValueSum + nonExpertValueSum
+        #print functionValue,' is the total likelihood value'
         return functionValue
       
     '''
@@ -129,10 +110,10 @@ class BackStormModelGenerator:
     def _goldenSectionSearchForAlpha(self, C, childRegion):
         # Golden section search for alpha parameter for a fixed C
         goldenRatio = 0.618
-        aAlpha = self._alphaMin
-        bAlpha = self._alphaMax
+        aAlpha = Settings._alphaMin
+        bAlpha = Settings._alphaMax
         
-        while bAlpha - aAlpha > self._alphaTolerance:
+        while bAlpha - aAlpha > Settings._alphaTolerance:
             x1Alpha = aAlpha + (1 - goldenRatio) * (bAlpha - aAlpha)
             x2Alpha = aAlpha + goldenRatio * (bAlpha - aAlpha)
            
@@ -157,10 +138,10 @@ class BackStormModelGenerator:
     def _goldenSectionSearch(self, childRegion):
         # Golden section search for C and alpha parameters  
         goldenRatio = 0.618
-        aC = self._Cmin
-        bC = self._Cmax
+        aC = Settings._Cmin
+        bC = Settings._Cmax
         
-        while bC - aC > self._Ctolerance:
+        while bC - aC > Settings._Ctolerance:
             x1C = aC + (1 - goldenRatio) * (bC - aC)
             x2C = aC + goldenRatio * (bC - aC)
             
@@ -176,19 +157,15 @@ class BackStormModelGenerator:
         (argmaxAlpha, maxLikelihoodValue) = self._goldenSectionSearchForAlpha(argmaxC, childRegion)
         return (argmaxC, argmaxAlpha, maxLikelihoodValue)
     
-    
-    
     '''
     Just a wrapper method which hides how exactly the maximum likehood value is 
     calculated.
     '''
     def _calculateMaxLogLikelihood(self, region):
-        self.lock.acquire()
-        self._usersBucket = BucketUsers(region, self._bucketingInterval)
-        #print 'Bucket for ', region.getName()
-        #self._usersBucket.printBucket()
-        value =  self._goldenSectionSearch(region)
-        self.lock.release()
+        self._usersBucket = BucketUsers(region, Settings._bucketingInterval)
+        # print 'prepared bucket for ', region.getName()
+        # self._usersBucket.printBucket()
+        value = self._goldenSectionSearch(region)
         return value
     
     '''
@@ -207,18 +184,18 @@ class BackStormModelGenerator:
     mleRegion.
     '''
     def _getMaximumLikelyChildRegion(self, parentRegion):
-        #print 'calculating maximum likelihood for all regions in'+ parentRegion.getName() +' and getting the maximum parentRegion'
+        # print 'calculating maximum likelihood for all regions in'+ parentRegion.getName() +' and getting the maximum parentRegion'
         previousMaxLikelihoodValue = maxLikelihoodValue = -9999999999999
         (argmaxC, argmaxAlpha) = (0, 0)
-        mleRegion = parentRegion.getChildRegion(0, 0)
+        mleRegion = None
         for childrenRegionRow in parentRegion.getChildRegions():
                 for childRegion in childrenRegionRow:
                     (argmaxC, argmaxAlpha, value) = self._calculateMaxLogLikelihood(childRegion)
-                    #print 'Got value =' , value
+                    # print 'Got value =' , value
                     maxLikelihoodValue = max(maxLikelihoodValue, value)
-                    #print 'Got mle Value = ', maxLikelihoodValue
+                    # print 'Got mle Value = ', maxLikelihoodValue
                     if maxLikelihoodValue > previousMaxLikelihoodValue:
-                        #print maxLikelihoodValue, ' is greater than ', previousMaxLikelihoodValue
+                        # print maxLikelihoodValue, ' is greater than ', previousMaxLikelihoodValue
                         mleRegion = childRegion
                         previousMaxLikelihoodValue = maxLikelihoodValue 
         return (mleRegion, argmaxC, argmaxAlpha)
@@ -230,11 +207,11 @@ class BackStormModelGenerator:
     '''
     def _computeModel(self, expertiseRegion, queue):
         region = expertiseRegion
-        childRegionVerticalSize = self._initialChildRegionVerticalSize
-        childRegionHorizontalSize = self._initialChildRegionHorizontalSize
+        childRegionVerticalSize = Settings._initialChildRegionVerticalSize
+        childRegionHorizontalSize = Settings._initialChildRegionHorizontalSize
         mleRegion = None
-        print 'Computing model for',region.getName() 
-        while childRegionHorizontalSize >= self._minChildRegionSize:
+        print 'Computing model for', region.getName() 
+        while childRegionHorizontalSize >= Settings._minChildRegionSize:
             region.segmentByChildSize(childRegionHorizontalSize, childRegionVerticalSize)
             mleRegion, argmaxC, argmaxAlpha = self._getMaximumLikelyChildRegion(region)
             # print mleRegion.getName(), ' has the largest mle value', 'C = ', argmaxC, ' alpha = ', argmaxAlpha
@@ -248,7 +225,7 @@ class BackStormModelGenerator:
                       'center':mleRegion.getCenter(),
                       'regionName': expertiseRegion.getName()
 		      }
-        #print 'The resultant model is :', dictResult
+        # print 'The resultant model is :', dictResult
         queue.put(dictResult)
     
     '''
@@ -290,8 +267,6 @@ class BackStormModelGenerator:
                 # print 'Appended entry for', modelDict['regionName']
                 self._dictExpertModels[expertise] = [modelDict]
         
-        #pprint(self._dictExpertModels[expertise])
-    
     '''
     Checks if all processes have finished computation if yes then returns 
     otherwise sleeps.
@@ -322,7 +297,6 @@ class BackStormModelGenerator:
                       }
         dataQueue.put(dictResult)
         
-            
     '''
     Spawn a subprocess for every region in the provided 'expertiseRegions' list
     and performs parallel computation then puts the results in to the provided 
@@ -346,15 +320,11 @@ class BackStormModelGenerator:
         self._waitForProcesses(processes)
         return processes
     
-            
-            
     def _optimizeParameters(self, expertise):
         expertiseRegions = self._dictExpertiseRegions[expertise]
         dataQueue = Queue(len(expertiseRegions))
         self._computeLogLikelihoodValuesParallely(expertiseRegions, dataQueue)
         self._populateResultsFromQueue(expertise, dataQueue)
-            
-    
     
     def _updateExpertiseRegions(self, expertise):
         dictRegionPartition = {}
@@ -370,27 +340,27 @@ class BackStormModelGenerator:
         dictCenters = {}
         for model in self._dictExpertModels[expertise]:
             dictCenters[model['regionName']] = model['center']
-        
+    
         expertRegions = []
         for regionName in dictRegionPartition:
             usersData = dictRegionPartition[regionName]
-            print regionName,' has ', len(usersData), ' users assigned to it out of', len(UsersData.getUsersData()), ' users'
+            print regionName, ' has ', len(usersData), ' users assigned to it out of', len(UsersData.getUsersData()), ' users'
             leftTop, rightBottom = self._getBoundingBox(usersData)
             try:
-                expertRegion = Region(leftTop, rightBottom, 
-                                  center = dictCenters[regionName], name = regionName, 
-                                  isParent=True, expertise = expertise)
+                expertRegion = Region(leftTop, rightBottom,
+                                  center=dictCenters[regionName], name=regionName,
+                                  isParent=True, expertise=expertise)
             
                 expertRegions.append(expertRegion)
             except:
                 print 'Region invalid.. discarded!!'
         self._dictExpertiseRegions[expertise] = expertRegions
+        
                 
     def _displayRegionsInfo(self, expertise):
         expertiseRegions = self._dictExpertiseRegions[expertise]
         models = self._dictExpertModels[expertise]
-        map_plots.plotRegion(expertiseRegions, models)
-    
+        #map_plots.plotRegion(expertiseRegions, models)
     
     '''
     Generates models for given expertises regions
@@ -405,7 +375,7 @@ class BackStormModelGenerator:
         print 'Initially computed models:-'
         pprint(self._dictExpertModels)
         iternum = 0
-        while iternum < self._numberOfIterations:
+        while iternum < Settings._numberOfIterations:
             UsersData.partitionUsers(self._dictExpertModels[expertise], expertise)
             print 'Recomputed Bounding boxes for regions-----'
             self._updateExpertiseRegions(expertise)
@@ -417,12 +387,18 @@ class BackStormModelGenerator:
             processes = self._computeModelsParallely(expertiseRegions, dataQueue)
             self._waitForProcesses(processes)
             self._populateResultsFromQueue(expertise, dataQueue)
-            print 'It took ', start - time.time(),' seconds'
+            print 'It took ', start - time.time(), ' seconds'
             print '---------------Generated multiple center model----------'
             pprint(self._dictExpertModels)
-            
             iternum += 1 
-            
+    
+    def generateSingleCenterModel(self, expertise):
+        expertiseRegion = self._dictExpertiseRegions[expertise][0]
+        dataQueue = Queue(1)
+        self._computeModel(expertiseRegion, dataQueue)
+        self._populateResultsFromQueue(expertise, dataQueue)
+        self._dictExpertModels[expertise] = dataQueue.get()
+        pprint(self._dictExpertModels)
             
     '''
     Generates models for all expertise extracted from the users data
@@ -455,7 +431,6 @@ class BackStormModelGenerator:
         randomCenter = (randomLattitude, randomLongitude)
         return randomCenter
     
-    
     '''
     Creates a bounding region for a certain expertise based on the
     location information in user data.
@@ -463,7 +438,6 @@ class BackStormModelGenerator:
     region.
     @return: The bounding region corresponding to the expertise.
     '''
-
     def _getBoundingBox(self, expertUsersData):
         maxLatitude = max(expertUsersData, key=itemgetter(2))[2]
         minLatiude = min(expertUsersData, key=itemgetter(2))[2]
@@ -472,23 +446,23 @@ class BackStormModelGenerator:
         leftTop = maxLatitude, minLongitude
         rightBottom = minLatiude, maxLongitude
         return leftTop, rightBottom
-
+    
     def _initializeExpertRegions(self, expertise):
         expertUsersData = self._dictExpertUsersData[expertise]
         if len(expertUsersData) == 0:
             return
         leftTop, rightBottom = self._getBoundingBox(expertUsersData)
         expertRegions = []
-        for index in range(self._numberOfcenters):
+        for index in range(Settings._numberOfcenters):
                 center = self._getRandomCenter(leftTop, rightBottom)
-                regionName = expertise + ' Region '+ str(index)
-                expertRegion = Region(leftTop, rightBottom,center = center ,name = regionName, 
-                              isParent=True, expertise = expertise)
+                regionName = expertise + ' Region ' + str(index)
+                expertRegion = Region(leftTop, rightBottom, center=center , name=regionName,
+                              isParent=True, expertise=expertise)
                 expertRegions.append(expertRegion)
           
         
-        #print 'Coordinates : minlatitude = ', minLatiude, ', maxLatitude = ', maxLatitude
-        #print 'minlongitude = ', minLongitude, ', maxlongitude = ', maxLongitude
+        # print 'Coordinates : minlatitude = ', minLatiude, ', maxLatitude = ', maxLatitude
+        # print 'minlongitude = ', minLongitude, ', maxlongitude = ', maxLongitude
         self._dictExpertiseRegions[expertise] = expertRegions
     
     '''
@@ -501,10 +475,27 @@ class BackStormModelGenerator:
     def getModelsForExpertise(self, expertise):
         return self._dictExpertModels[expertise]
     
-    
     def getModelsForAllExpertise(self):
         return self._dictExpertModels
     
+    '''
+    Methods for Debugging and testing purposes.
+    '''
+    def testGoldenSectionSearch(self, regionCenter, expertise):
+        expertRegion = Region((45, -129), (25, -50),
+                              center=regionCenter , name='Test Region',
+                              isParent=True, expertise=expertise)
+        self._usersBucket = BucketUsers(expertRegion, Settings._bucketingInterval)
+        self._usersBucket.printBuckets()
+        print self._goldenSectionSearch(expertRegion)
+    
+    def testLikelihood(self, regionCenter, expertise, C, alpha):
+        expertRegion = Region((45, -129), (25, -50),
+                              center=regionCenter , name='Test Region',
+                              isParent=True, expertise=expertise)
+        self._usersBucket = BucketUsers(expertRegion, Settings._bucketingInterval)
+        print 'likelihood value:', self._likelihoodFunction(C, alpha, expertRegion)
+        
     def display(self):
         print 'Models Created as follows'
         pprint(self._dictExpertModels)
@@ -514,11 +505,12 @@ def main():
     dataDirectory = 'data/'
     modelGenerator = BackStormModelGenerator(dataDirectory)
     start = time.time()
-    modelGenerator.generateModelForExpertise('tech')
-    #modelGenerator.generateModelForAllExpertise()
+    #print modelGenerator.testGoldenSectionSearch((33.174, -90.322), 'vc')
+    #print modelGenerator.testLikelihood(regionCenter = (45.174, -126.322), expertise = 'vc', C = .9 , alpha = .5)
+    #modelGenerator.generateSingleCenterModel('vc')
+    modelGenerator.generateModelForAllExpertise()
     print 'Time Taken:', time.time() - start, ' seconds'
     modelGenerator.display()
-
 
 if __name__ == "__main__":
     main()          
