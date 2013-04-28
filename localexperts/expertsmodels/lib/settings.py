@@ -8,37 +8,39 @@ class Settings:
     '''
       BackStrom Model Settings 
     '''
-    _numberOfIterations = 10
+    numberOfIterations = 10
     
-    _numberOfcenters = 10
-    _bucketingInterval = 40
+    numberOfcenters = 10
+    bucketingInterval = 40
     
     # min - max values for the C and alpha parameter 
-    _alphaMin = 0.01
-    _alphaMax = 9.99
-    _Cmin = 0.001
-    _Cmax = 0.999
+    alphaMin = 0.01
+    alphaMax = 9.99
+    Cmin = 0.001
+    Cmax = 0.999
     # tolerance values for the golden section search algorithm
-    _Ctolerance = .001
-    _alphaTolerance = 0.01
+    Ctolerance = .001
+    alphaTolerance = 0.01
     
     # intial size of each grid
-    _initialChildRegionVerticalSize = 2
-    _initialChildRegionHorizontalSize = 2
+    initialChildRegionVerticalSize = 2
+    initialChildRegionHorizontalSize = 2
     # minimum size of grid
-    _minChildRegionSize = .1
+    minChildRegionSize = .1
     
 
     '''
      Data extractor settings
     '''   
-    _maxExperts = 5000
-    _dataFileNamePartOne = 'expert_locations_for_'
-    _dataFileNamePartTwo = '_full_data.txt'
-    _filterList = [
+    maxExperts = 5000
+    dataFileNamePartOne = 'expert_locations_for_'
+    dataFileNamePartTwo = '_full_data.txt'
+    filterList = [
                       { 
-                       'leftTopCoordinates' : (50, -125),
+                       'leftTopCoordinates' : (50, -129),
                        'rightBottomCoordinates' : (25.255, -60),
                        'region' : 'USA'
                       }
                    ]
+    userDataFileName = 'list_creator_user_location.json'
+    expertUserListFileName = 'userids.txt'

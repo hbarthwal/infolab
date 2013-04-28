@@ -3,7 +3,7 @@ Created on Apr 11, 2013
 
 @author: Himanshu Barthwal
 '''
-from extractdata import DataExtractor
+from extractdata import DataExtractorFactory
 from region import Region
 from userdata import UsersData
 from utility import Utility
@@ -141,7 +141,6 @@ class BucketUsers:
                                                                               'confidenceSum': 0.0,
                                                                               'usersCount': 0
                                                                               }
-                
                 else:
                     # calculating the sum of all users' distance and confidence within a 
                     # certain radius denoted by the bucketKey
@@ -160,7 +159,6 @@ class BucketUsers:
     '''
     For testing and debugging purposes.
     '''
-       
     def printBuckets(self):
         totalExpertsCount = 0
         totalNonExpertsCount = 0
@@ -174,13 +172,13 @@ class BucketUsers:
                 expertCount = self._bucketedUserData[bucketKey]['expert']['usersCount']
                 expertConfindenceSum = self._bucketedUserData[bucketKey]['expert']['confidenceSum']
                 totalExpertsCount += expertCount
-                #print 'Bucket ', bucketKey,' has ',expertCount, 'experts with expertConfindenceSum = ',expertConfindenceSum
+                print 'Bucket ', bucketKey,' has ',expertCount, 'experts with expertConfindenceSum = ',expertConfindenceSum
                 
             if 'nonexpert' in self._bucketedUserData[bucketKey]:
                 nonExpertCount = self._bucketedUserData[bucketKey]['nonexpert']['usersCount']
                 nonExpertConfindenceSum = self._bucketedUserData[bucketKey]['nonexpert']['confidenceSum']
                 totalNonExpertsCount += nonExpertCount
-                #print 'Bucket ', bucketKey,' has ',nonExpertCount, 'nonexperts with expertConfindenceSum = ',nonExpertConfindenceSum
+                print 'Bucket ', bucketKey,' has ',nonExpertCount, 'nonexperts with expertConfindenceSum = ',nonExpertConfindenceSum
         
         print 'Total experts:', totalExpertsCount, ' Total non experts:', totalNonExpertsCount
 
@@ -188,7 +186,7 @@ def main():
     print 'Main'
     dataDirectory = 'data/'
     start = time.time()
-    data = DataExtractor(dataDirectory)
+    data = DataExtractorFactory.getDataExtractor('expertisemodel', dataDirectory)
     expertUsersData = data.getAllExpertsData()
     region = Region((50, -125), (25.255, -60),center = (30,-60) ,expertise='vc')
     UsersData.addUserDataToRegions(expertUsersData)

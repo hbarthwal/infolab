@@ -5,7 +5,7 @@ Created on Apr 13, 2013
 '''
 from operator import itemgetter
 from region import Region
-from extractdata import DataExtractor
+from extractdata import DataExtractorFactory
 from sklearn.cluster import KMeans
 from numpy import asarray, empty, float
 
@@ -90,7 +90,7 @@ class UsersClustering:
         
 def main():
     print 'Main'
-    data = DataExtractor('data/')
+    data = DataExtractorFactory.getDataExtractor('expertmodel', 'data/')
     expertsData = data.getAllExpertsData()
     clusterer = UsersClustering(expertsData)
     clusterer.getExpertRegions('tech')
