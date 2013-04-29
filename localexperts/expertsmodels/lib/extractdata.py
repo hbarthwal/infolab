@@ -136,7 +136,7 @@ class DataExtractorFactory(object):
             then the data will be populated for all the possible expertise values
             '''
             def _populateDataForExpertise(self, expertise):
-                filename = self.getFileNameFromExpertise(expertise)
+                filename = CommonUtils.getFileNameFromExpertise(self._dataDirectory, expertise)
                 self._populateDataFromFile(filename)
             
             '''
@@ -167,7 +167,7 @@ class DataExtractorFactory(object):
                 if len(expertsDataList) > 0:
                     self._expertUsersData[expertise] = expertsDataList
                 
-                print 'The region distribution of the points for ', expertise , ' is :', self._dictRegionUserDistribution[expertise]
+                #print 'The region distribution of the points for ', expertise , ' is :', self._dictRegionUserDistribution[expertise]
             
             '''
             Displays the extracted data
@@ -259,8 +259,8 @@ class DataExtractorFactory(object):
                 if len(expertsDataDict) > 0:
                     self._userExpertiseDict[expertise] = expertsDataDict
                 
-                print 'The expert users for ', expertise , ' are :'
-                print expertsDataDict.keys()
+                #print 'The expert users for ', expertise , ' are :'
+                #print expertsDataDict.keys()
            
            
             '''
@@ -340,10 +340,10 @@ class DataExtractorFactory(object):
             def getExpertUsersData(self, expertUserId, expertise = ''):
                 if expertise == '':
                     expertise = self._currentExpertise
-                if expertise not in self._expertUsersData:
+                if expertise not in self._userExpertiseDict:
                     self.populateData(self._dataDirectory, expertise)
-                    return self._expertUsersData[expertise][expertUserId]
-                return self._expertUsersData[expertise][expertUserId]
+                    return self._userExpertiseDict[expertise][expertUserId]
+                return self._userExpertiseDict[expertise][expertUserId]
             
             
             '''
@@ -365,7 +365,7 @@ class DataExtractorFactory(object):
             '''
             Displays the extracted data
             '''
-            def displayData(self, expertise):
+            def displayData(self):
                 print '------------------'
                 for expertise in self._userExpertiseDict:
                     print '-----', expertise, '------'
@@ -390,7 +390,7 @@ def main():
     dataDirectory = 'expertdata/'
     dataExtractor = DataExtractorFactory.getDataExtractor('expertmodel', dataDirectory)
     dataExtractor.populateData(dataDirectory, 'all')
-    dataExtractor.displayData('all')
+    print dataExtractor.displayData()
     
 if __name__ == "__main__":
     main()    

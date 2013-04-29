@@ -79,36 +79,40 @@ class Region:
     @return: True if the given location is bounded by this region, False otherwise.
     '''
     def boundsLocation(self, userData):
-        #print 'Checking boundsLocation for :', userData
-        if UsersData.isPartitioned():
-            #print 'data is partitioned'
-            # If the users data has been partitioned and each user has a label that 
-            # corresponds to the region it is assigned to
-            if userData[4] == self._expertise:
-                #print 'User is an expert'
-                
-                # If this user is an expert then it will have the label of the region
-                # to which it belongs to. So we just compare the label to the name of the current 
-                # region
-                if userData[5] ==  self._name:
-                    #print 'User belongs to the region ', self._name
-                    return True
+        try:
+            #print 'Checking boundsLocation for :', userData
+            if UsersData.isPartitioned():
+                #print 'data is partitioned'
+                # If the users data has been partitioned and each user has a label that 
+                # corresponds to the region it is assigned to
+                if userData[4] == self._expertise:
+                    #print 'User is an expert'
+                    
+                    # If this user is an expert then it will have the label of the region
+                    # to which it belongs to. So we just compare the label to the name of the current 
+                    # region
+                    if userData[5] ==  self._name:
+                        #print 'User belongs to the region ', self._name
+                        return True
+                    else:
+                        #print 'User does not belong to region', self._name
+                        return False
                 else:
-                    #print 'User does not belong to region', self._name
-                    return False
-            else:
-                # If this user is not an expert then we only consider its location
-                # to judge whether it belongs to the region or not
-                #print 'User is not an expert'
-                pass
+                    # If this user is not an expert then we only consider its location
+                    # to judge whether it belongs to the region or not
+                    #print 'User is not an expert'
+                    pass
+            
+            #print 'Checking location'
+            location = (userData[2], userData[3])
+            if location[0] >= self._rightBottom[0] and location[0] <= self._leftTop[0] :
+                if location[1] <= self._rightBottom[1] and location[1] >= self._leftTop[1]:
+                    #print 'Passed!!'
+                    return True
+            #print 'Failed!!'
+        except:
+            print userData
         
-        #print 'Checking location'
-        location = (userData[2], userData[3])
-        if location[0] >= self._rightBottom[0] and location[0] <= self._leftTop[0] :
-            if location[1] <= self._rightBottom[1] and location[1] >= self._leftTop[1]:
-                #print 'Passed!!'
-                return True
-        #print 'Failed!!'
         return False
     
     '''

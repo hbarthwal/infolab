@@ -11,7 +11,7 @@ class Settings:
     numberOfIterations = 10
     
     numberOfcenters = 10
-    bucketingInterval = 40
+    bucketingInterval = 10
     
     # min - max values for the C and alpha parameter 
     alphaMin = 0.01

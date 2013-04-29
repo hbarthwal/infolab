@@ -22,7 +22,7 @@ class BackStromExpertiseModelGenerator:
     _dictExpertiseRegions = {'tech': [Region((0, 0), (0, 0))]}
     _dictExpertModels = {'tech': [{'C':.8, 'alpha' : 2.9, 'center': (23, -67.9)}]}
     _dataDirectory = ''
-    _dataExtractor = None
+    _expertiseDataExtractor = None
     _usersClusterer = None    
     _usersBucket = None
     
@@ -31,12 +31,12 @@ class BackStromExpertiseModelGenerator:
         self._dictExpertModels.clear()
         self._dataDirectory = dataDirectory
         if dataExtractor == None:
-            self._dataExtractor = DataExtractorFactory.getDataExtractor('expertisemodel', self._dataDirectory)
-            self._dataExtractor.populateData(self._dataDirectory)
+            self._expertiseDataExtractor = DataExtractorFactory.getDataExtractor('expertisemodel', self._dataDirectory)
+            self._expertiseDataExtractor.populateData(self._dataDirectory)
         else:
-            self._dataExtractor = dataExtractor
+            self._expertiseDataExtractor = dataExtractor
             
-        self._dictExpertUsersData = self._dataExtractor.getAllExpertsData()
+        self._dictExpertUsersData = self._expertiseDataExtractor.getAllExpertsData()
         self._createParentRegions()
         UsersData.addUserDataToRegions(self._dictExpertUsersData)
 
