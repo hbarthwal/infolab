@@ -20,7 +20,7 @@ class ExpertSearchView(View):
         return self.getExpertSearch(request)
     
     def getExpertSearch(self, request):
-        template = loader.get_template('expertSearch.html')
+        template = loader.get_template('expertsearch.html')
         return HttpResponse(template.render(Context({'dummy':None})))
     
 '''
