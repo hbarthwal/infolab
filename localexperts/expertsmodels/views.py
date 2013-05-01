@@ -1,3 +1,7 @@
+'''
+@author: Himanshu Barthwal
+@revision : Preeti Suman
+'''
 # Create your views here.
 from django.http import HttpResponse
 from django.template import loader, Context
@@ -17,7 +21,33 @@ class ExpertSearchView(View):
         return self.getExpertSearch(request)
     
     def getExpertSearch(self, request):
-        template = loader.get_template('expertSearch.html')
+        template = loader.get_template('expertsearch.html')
+        return HttpResponse(template.render(Context({'dummy':None})))
+
+    
+'''
+This view provides all the web services for the expert search page.
+'''
+class ExpertSearchService(APIView):
+    _expertSearchAPI = ExpertsSearchAPI()
+    
+    def get(self, request):
+        query = request.REQUEST['query']
+        userLocation = request.REQUEST['userlocation']
+        coordinates = userLocation.split(',')
+        userLocation = (float(coordinates[0]), float(coordinates[1]))
+        results = self._expertSearchAPI.getExperts(query, userLocation)
+        jsonData = dumps(results)
+        return Response(jsonData) 
+'''
+This view serves the page for the heatmap page.
+'''        
+class ExpertsHeatMapView(View):
+    def get(self, request):
+        return self.getExpertSearch(request)
+    
+    def getExpertSearch(self, request):
+        template = loader.get_template('expertsearch.html')
         return HttpResponse(template.render(Context({'dummy':None})))
     
 '''
@@ -40,8 +70,7 @@ This view serves the page for the heatmap page.
 class ExpertsHeatMapView(View):
     def get(self, request):
         return self.getExpertiseHeatmap(request)   
-    
-    
+
     def getExpertiseHeatmap(self, request):
         template = loader.get_template('heatmap.html')
         return HttpResponse(template.render(Context({'dummy':None})))
