@@ -11,14 +11,14 @@
         locationPicker: function() {
             
             var options = {
-                width: "300px",
-                height: "200px",
+                width: "400px",
+                height: "400px",
                 backgroundColor: '#fff',
                 border: '1px solid #ccc',
                 borderRadius: 10,
                 padding: 10,
-                defaultLat: 51.500152,
-                defaultLng: -0.126236            
+                defaultLat: 30.2,
+                defaultLng: -98.1            
             };
             
             function RoundDecimal(num, decimals){
