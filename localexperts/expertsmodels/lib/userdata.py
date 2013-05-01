@@ -33,7 +33,9 @@ class UsersData:
         for userData in UsersData._usersData:
             pValues = []
             for expertModel in expertModels:
-                p = Utility.getModelValue(expertModel, userData, userData[4] == expertise)
+                userLocation = (userData[2], userData[3])
+                isExpert = userData[4] == expertise
+                p = Utility.getModelValue(expertModel, userLocation, isExpert)
                 pValues.append((p, expertModel['regionName']))
             maxPRegion = max(pValues, key = itemgetter(0))[1]
             if len(userData) == 5:

@@ -7,15 +7,15 @@ Created on Apr 13, 2013
 from math import radians, cos, sin, asin, sqrt
 
 class Utility:
+    
     '''
     Evaluates the user confidence based on the Backstorm model.
     '''
     @staticmethod
-    def getModelValue(model, userData, isExpert):
+    def getModelValue(model, userLocation, isExpert):
         C = model['C']
         alpha = model['alpha']
         center = model['center']
-        userLocation = (userData[2], userData[3])
         distance = Utility.haversine(center[0],center[1], userLocation[0], userLocation[1])
         value = C * pow(distance + 0.9, -alpha)
         if isExpert:
