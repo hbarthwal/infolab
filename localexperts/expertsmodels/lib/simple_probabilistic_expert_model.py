@@ -7,7 +7,6 @@ from math import pow
 from pprint import pprint
 
 from extractdata import DataExtractorFactory
-from region import Region
 from utility import Utility
 
 
@@ -27,7 +26,7 @@ class SimpleProbabilisticExpertModel(object):
     _dataExtractor = None
     _Dmin = 160
     _alpha = 1.75
-    
+    _labelerStatsDict = {}
     
     '''
     Warning : These regions should not be overlapping otherwise the 
@@ -35,10 +34,10 @@ class SimpleProbabilisticExpertModel(object):
     '''
     
     _regions = {
-                'SF': (37.7750, 122.4183),
-                'NYC': (40.7142, 74.0064), 
-                'Austin': (30.2669, 97.7428), 
-                'College Station': (30.6278, 96.3342)
+                'SF':{'center': (37.7750, -122.4183), 'radius': 100},
+                'NYC': {'center': (40.7142, -74.0064), 'radius': 100}, 
+                'Austin': {'center': (30.2669, -97.7428),  'radius': 100},
+                'College Station': {'center': (30.6278, -96.3342), 'radius': 100},
                }
     
     # Contains the names of the expertise which are under consideration
@@ -65,7 +64,7 @@ class SimpleProbabilisticExpertModel(object):
         that expertise. 
         '''
         userLocation = userData[2], userData[3]
-        regionCenter = self._regions[regionName]
+        regionCenter = self._regions[regionName]['center']
         distance = Utility.haversine(regionCenter[0], regionCenter[1], userLocation[0], userLocation[1])
         # This is the equation used for calculating the score for the
         # expert.
@@ -79,6 +78,7 @@ class SimpleProbabilisticExpertModel(object):
         '''
         for expertRegionName in self._regions:
             score =  self._getScore(userData, expertRegionName)
+            self._updateLabelersStats(expertise, expertId, expertRegionName, userData)
             if expertise not in self._expertsScoreDict:
                 self._expertsScoreDict[expertise] = {}
             
@@ -112,15 +112,34 @@ class SimpleProbabilisticExpertModel(object):
                     self.updateScore(expertise, expertId, labelingUserData)
         
     
-    def generateLabelersStats(self):
+    def _updateLabelersStats(self, expertise, expertId, regionName, userData):
         '''
         Generates the statistics for the labeling users 
         Calculates that what percentage of the labeling
         users lie in a certain city within in a given 
         radius.
         '''
+        userLocation = userData[2], userData[3]
+        region = self._regions[regionName]
+        regionCenter = region['center']
+        distance = Utility.haversine(regionCenter[0], regionCenter[1], userLocation[0], userLocation[1])
         
+        if expertise not in self._labelerStatsDict:
+            self._labelerStatsDict[expertise] = {}
+            
+        if expertId not in self._labelerStatsDict[expertise]:
+            self._labelerStatsDict[expertise][expertId] = {}
+            
+            for regionName in self._regions:
+                self._labelerStatsDict[expertise][expertId][regionName] = {}
+                self._labelerStatsDict[expertise][expertId][regionName]['inside'] = 0
+                self._labelerStatsDict[expertise][expertId][regionName]['outside'] = 0
         
+        if distance < self._regions[regionName]['radius']:
+            self._labelerStatsDict[expertise][expertId][regionName]['inside'] += 1
+            
+        else:
+            self._labelerStatsDict[expertise][expertId][regionName]['outside'] += 1
     
         
 def main():
@@ -129,6 +148,7 @@ def main():
     modelGenerator = SimpleProbabilisticExpertModel(dataDirectory)
     modelGenerator.generateModel()
     pprint(modelGenerator._expertsScoreDict)
+    pprint(modelGenerator._labelerStatsDict)
 if __name__ == "__main__":
     main()    
          
