@@ -22,7 +22,7 @@ class BackStromExpertiseModelGenerator:
     _dictExpertiseRegions = {'tech': [Region((0, 0), (0, 0))]}
     _dictExpertModels = {'tech': [{'C':.8, 'alpha' : 2.9, 'center': (23, -67.9)}]}
     _dataDirectory = ''
-    _expertiseDataExtractor = None
+    _expertDataExtractor = None
     _usersClusterer = None    
     _usersBucket = None
     
@@ -31,12 +31,12 @@ class BackStromExpertiseModelGenerator:
         self._dictExpertModels.clear()
         self._dataDirectory = dataDirectory
         if dataExtractor == None:
-            self._expertiseDataExtractor = DataExtractorFactory.getDataExtractor('expertisemodel', self._dataDirectory)
-            self._expertiseDataExtractor.populateData(self._dataDirectory)
+            self._expertDataExtractor = DataExtractorFactory.getDataExtractor('expertisemodel', self._dataDirectory)
+            self._expertDataExtractor.populateData(self._dataDirectory)
         else:
-            self._expertiseDataExtractor = dataExtractor
+            self._expertDataExtractor = dataExtractor
             
-        self._dictExpertUsersData = self._expertiseDataExtractor.getAllExpertsData()
+        self._dictExpertUsersData = self._expertDataExtractor.getAllExpertsData()
         self._createParentRegions()
         UsersData.addUserDataToRegions(self._dictExpertUsersData)
 
@@ -434,6 +434,21 @@ class BackStromExpertiseModelGenerator:
         return randomCenter
     
     '''
+    Generates the random centers such that they are uniformly distributed over the 
+    targeted geographical region
+    '''
+    
+    def _getRandomCenters(self, leftTop, rightBottom):
+        dummyRegion = Region(leftTop, rightBottom)
+        childRegionCount = int(round(pow(Settings.numberOfcenters,0.5)))
+        dummyRegion.segmentByChildCount(childRegionCount, childRegionCount)
+        randomCenters = []
+        for childRegionRow in dummyRegion.getChildRegions():
+            for childRegion in childRegionRow:
+                randomCenter = self._getRandomCenter(childRegion.getLeftTop(), childRegion.getRightBottom())
+                randomCenters.append(randomCenter)
+        return randomCenters
+    '''
     Creates a bounding region for a certain expertise based on the
     location information in user data.
     @param expertise: The expertise for which we want to create a bounding
@@ -450,13 +465,15 @@ class BackStromExpertiseModelGenerator:
         return leftTop, rightBottom
     
     def _initializeExpertRegions(self, expertise):
+        
         expertUsersData = self._dictExpertUsersData[expertise]
         if len(expertUsersData) == 0:
             return
         leftTop, rightBottom = self._getBoundingBox(expertUsersData)
         expertRegions = []
-        for index in range(Settings.numberOfcenters):
-                center = self._getRandomCenter(leftTop, rightBottom)
+        centers = self._getRandomCenters(leftTop, rightBottom)
+        for index in range(len(centers)):
+                center = centers[index]
                 regionName = str(expertise) + ' Region ' + str(index)
                 expertRegion = Region(leftTop, rightBottom, center=center , name=regionName,
                               isParent=True, expertise=expertise)

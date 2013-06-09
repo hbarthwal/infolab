@@ -3,14 +3,19 @@ Created on Mar 24, 2013
 
 @author: Himanshu Barthwal
 '''
+from copy import copy
+from collections import defaultdict, OrderedDict
+from json import loads
+from operator import itemgetter
 from os import listdir
 from os.path import isfile, join, dirname, exists
-from settings import Settings
-from json import loads
 from pickle import load, dump
 from pprint import pprint
 from stemming import porter2
+from copy import deepcopy
 
+
+from settings import Settings
 
 '''
 Factory for data extractors.
@@ -20,7 +25,9 @@ class DataExtractorFactory(object):
     def getDataExtractor(extractorType, dataDirectory):
              
         ##############################################################################################
-        
+        '''
+        This is a helper class used by the data extractor classes.
+        '''
         class CommonUtils:
             '''
             Generates the file name from the expertise
@@ -201,12 +208,11 @@ class DataExtractorFactory(object):
         
         '''
         Data extractor for generating models for individual experts.
-        Most of the functionality is just a wrapper over the ExpertiseModelDataExtractor.
         '''
         class ExpertModelDataExtractor:
             _dataDirectory = ''
             _dictRegionUserDistribution = {}
-            _userExpertiseDict = {}
+            _userExpertiseDict = defaultdict()
             _dictionaryDumpFileName = 'userDataDict'
             _currentExpertise = ''
             
@@ -227,40 +233,35 @@ class DataExtractorFactory(object):
                 self._currentExpertise = expertise 
            
             def _pruneData(self):
+                print 'Pruning the data set'
                 for expertise in self.getExpertiseList():
                     for expertUserId in self.getExpertIdsList(expertise):
                         if len(self._userExpertiseDict[expertise][expertUserId]) <= 20:
-                            self._userExpertiseDict[expertise].pop(expertUserId) 
-            '''
-            Populates the data for a given expertise
-            @param expertise: the expertise for which we want to populate the data if expertise = "all"
-            then the data will be populated for all the possible expertise values
-            '''
-            def _populateExpertUserIdsForExpertise(self, expertise):
-                filename = CommonUtils.getFileNameFromExpertise(self._dataDirectory ,expertise)
-                self._populateExpertUserIdsFromFile(filename)
+                            self._userExpertiseDict[expertise].pop(expertUserId)
+                    if len(self._userExpertiseDict[expertise]) == 0:
+                        self._userExpertiseDict.pop(expertise) 
+            
+            def _filterTopExperts(self):
+                tempDict = defaultdict()
+                for expertise in self._userExpertiseDict:
+                    sortedExpertIds =  self._getSortedExperts(expertise)[:Settings.topKExpertCount]
+                    tempDict[expertise] = OrderedDict()
+                    for expertId in sortedExpertIds:
+                        tempDict[expertise][expertId] = self._userExpertiseDict[expertise][expertId]
+                self._userExpertiseDict = tempDict
             
             '''
-            Populates the expert users ids from file 
-            @param filename: The filename from which the data is to be extracted
+            Populates the expertise from filename 
+            @param filename: The filename from which the expertise is to be extracted
             '''
-            def _populateExpertUserIdsFromFile(self, filename):   
+            def _populateExpertiseFromFile(self, filename):   
+                '''
+                 FIXME : This is a really stupid way of extracting the expertise
+                         under consideration
+                '''
                 # extracting the expertise from filename
                 expertise = CommonUtils.extractExpertise(filename)
-                expertsDataDict = {}
-                count = 0
-                with open(filename) as expertsData:
-                    for expertUserId in expertsData:
-                        if count == 20:
-                            break
-                        expertsDataDict[int(expertUserId.strip())] = []
-                        count += 1
-                            
-                if len(expertsDataDict) > 0:
-                    self._userExpertiseDict[expertise] = expertsDataDict
-                
-                #print 'The expert users for ', expertise , ' are :'
-                #print expertsDataDict.keys()
+                self._userExpertiseDict[expertise] = defaultdict()
            
            
             '''
@@ -278,10 +279,10 @@ class DataExtractorFactory(object):
                                 filenames.append(join(dataDirectory, f))
                     # extracting the data from each file corresponding to an expertise         
                     for filename in filenames:            
-                        self._populateExpertUserIdsFromFile(filename)
+                        self._populateExpertiseFromFile(filename)
                 
                 else :
-                    self._populateExpertUserIdsForExpertise(expertise)
+                    self._userExpertiseDict[expertise] = defaultdict()
            
             '''
             Populates data for a given expertise from the data files.
@@ -289,13 +290,15 @@ class DataExtractorFactory(object):
             @param expertise: the expertise for which we want to populate the data if expertise = "all"
             then the data will be populated for all the possible expertise values
             '''
-            def populateData(self, dataDirectory, expertise):
+            def populateData(self, dataDirectory, expertise = None):
                 dumpFile = join(dataDirectory, self._dictionaryDumpFileName)
                 if exists(dumpFile):
                     self._userExpertiseDict = load(open(dumpFile,'rb'))
+                    self._filterTopExperts()
                     return
                 
                 self._populateExpertUserIds(dataDirectory, expertise)
+                print self._userExpertiseDict.keys(), ' are the expertises'
                 self._populateUserDataFromFile()
                 self._pruneData()
                 dump(self._userExpertiseDict, open(dumpFile, 'wb'))
@@ -305,12 +308,9 @@ class DataExtractorFactory(object):
             @param filename: The filename from which the data is to be extracted
             '''
             def _populateUserDataFromFile(self):   
-                count = 0
                 filename = join(self._dataDirectory, Settings.userDataFileName)
                 with open(filename) as expertsData:
                     for expertData in expertsData:
-                        if count == Settings.maxExperts:
-                            break
                         jsonData = loads(expertData)
                         userId = jsonData['list_creator_id']
                         expertRank = 1
@@ -321,17 +321,16 @@ class DataExtractorFactory(object):
                         
                         expertise = porter2.stem(listName)
                         #print expertise , ' is the expertise'
-                        userData = [int(userId), float(expertRank), float(latitude), float(longitude), expertUserId]
-                        
+                         
                         if expertise in self._userExpertiseDict: 
-                            if expertUserId in self._userExpertiseDict[expertise]:
-                                # We restrict our study to restricted regions defined by filters in Settings.py
-                                if CommonUtils.isFilterable(userData):
+                            # We restrict our study to restricted regions defined by filters in Settings.py
+                            userData = [int(userId), float(expertRank), float(latitude), float(longitude), expertUserId]
+                            if CommonUtils.isFilterable(userData):
+                                if expertUserId in self._userExpertiseDict[expertise]:
                                     self._userExpertiseDict[expertise][expertUserId].append(userData)
-                                    count += 1
+                                else:
+                                    self._userExpertiseDict[expertise][expertUserId] = [userData]
                                 
-                            
-            
             '''
             Gets the expertusers data 
             @param expertise: The expertise for which the usersdata is to be returned
@@ -342,8 +341,9 @@ class DataExtractorFactory(object):
                     expertise = self._currentExpertise
                 if expertise not in self._userExpertiseDict:
                     self.populateData(self._dataDirectory, expertise)
-                    return self._userExpertiseDict[expertise][expertUserId]
-                return self._userExpertiseDict[expertise][expertUserId]
+             
+            def getDataCopy(self):
+                return deepcopy(self._userExpertiseDict)    
             
             
             '''
@@ -360,19 +360,25 @@ class DataExtractorFactory(object):
                         usersData = self._userExpertiseDict[expertise][expertUserId]
                         dictUserData[expertUserId] = [userData for userData in usersData]
                     return dictUserData
-            
+             
+            def _getSortedExperts(self, expertise):
+                sortedExperts = []
+                for expertUserId in self._userExpertiseDict[expertise]:
+                    userList = self._userExpertiseDict[expertise][expertUserId]
+                    numberOfUsers = len(userList)
+                    sortedExperts.append((expertUserId, numberOfUsers))
+                sortedExperts = sorted(sortedExperts, key=itemgetter(1), reverse=True)
+                sortedExperts = [expertInfo[0] for expertInfo in sortedExperts]
+                return sortedExperts
             
             '''
             Displays the extracted data
             '''
             def displayData(self):
-                print '------------------'
                 for expertise in self._userExpertiseDict:
                     print '-----', expertise, '------'
-                    for expertUserId in self._userExpertiseDict[expertise]:
-                        numberOfUsers = len(self._userExpertiseDict[expertise][expertUserId])
-                        if numberOfUsers > 0:
-                            print '        ', expertUserId, ' has ', numberOfUsers,' users'            
+                    for expertId in self._userExpertiseDict[expertise]:
+                        print expertId,' has ', len(self._userExpertiseDict[expertise][expertId]), ' users'
             
         #################################################################################################################
         

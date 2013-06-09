@@ -41,7 +41,7 @@ class Region:
     
     @param isParent: Indicates if this is the root region.
     '''
-    def __init__(self, topLeft, rightBottom,center = None, 
+    def __init__(self, leftTop, rightBottom,center = None, 
                  name = 'New Region', 
                  isParent = True, 
                  expertise = 'Jacks Of All Trades'):
@@ -49,7 +49,7 @@ class Region:
         self._isParent = isParent
         self._name = name.strip()
         self._rightBottom = rightBottom
-        self._leftTop = topLeft
+        self._leftTop = leftTop
         self._expertise = expertise
         self._validateCoordinates()
         self._calculateRegionAttributes()
@@ -72,6 +72,14 @@ class Region:
     def getExpertise(self):
         return self._expertise
     
+    def getLeftTop(self):
+        return self._leftTop
+    
+    def getRightBottom(self):
+        return self._rightBottom
+    
+    def setExpertise(self, expertise):
+        self._expertise = expertise
     '''
     Checks if the given location is bounded by this region.
     @param location: The tuple containing the latitude and longitude of the 
@@ -120,7 +128,10 @@ class Region:
     if the coordinates are invalid
     '''
     def _validateCoordinates(self):
-        if not (self._leftTop[0] >= self._rightBottom[0] and self._rightBottom[1] >= self._leftTop[1]):
+        try:
+            if not (self._leftTop[0] >= self._rightBottom[0] and self._rightBottom[1] >= self._leftTop[1]):
+                raise RuntimeError('Invalid bounding region !!')
+        except:
             raise RuntimeError('Invalid bounding region !!')
    
     '''

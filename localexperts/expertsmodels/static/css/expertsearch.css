@@ -1,6 +1,6 @@
 body
 	{
-	
+
 	background-color:#CCCCFF;
 	}
 h1
@@ -20,6 +20,7 @@ form
 	}
 .descntr
 	{
+		cursor:pointer;
 		margin-left: 15px;
 	}
 .clr
@@ -30,14 +31,18 @@ form
 	{
 	height:100px;
 	margin-bottom:20px;
+	margin-left:50px;
 	border-bottom:1px solid #ddd ;
-	width:75%;
+	width:90%;
 	}
 .desc
 	{
-	height: 25px;
+	height: 40px;
+	width: 	700px;
     overflow: hidden;
     padding-top: 5px;
+	position:absolute;
+	text-overflow:ellipsis;    
 	}
 div.mrg:hover
 	{
@@ -70,4 +75,3 @@ div.mrg:hover
 	font-style:oblique;	
 	position:relative;
 	}
-

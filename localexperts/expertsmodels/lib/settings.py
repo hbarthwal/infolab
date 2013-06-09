@@ -33,6 +33,7 @@ class Settings:
      Data extractor settings
     '''   
     maxExperts = 5000
+    topKExpertCount = 10
     dataFileNamePartOne = 'expert_locations_for_'
     dataFileNamePartTwo = '_full_data.txt'
     filterList = [

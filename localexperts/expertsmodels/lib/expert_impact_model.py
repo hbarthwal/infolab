@@ -4,13 +4,8 @@ Created on Apr 24, 2013
 @author: Himanshu Barthwal
 '''
 
-from io import open
-from os.path import join
 from pprint import pprint
 from operator import itemgetter
-from json import loads
-
-
 
 from backstrom_model import BackStromExpertiseModelGenerator
 from extractdata import DataExtractorFactory
@@ -23,7 +18,7 @@ Reuses all of the functionalities provided by the BackstormModel
 '''
 class BackstromExpertImpactModelGenerator:
     
-    _expertiseDataExtractor = None
+    _expertDataExtractor = None
     _dataDirectory = ''
     _expertImpactModels = {}
     
@@ -31,19 +26,19 @@ class BackstromExpertImpactModelGenerator:
     def __init__(self, dataDirectory, cachedModelsFileName = ''):
         self._cachedModelsFileName = cachedModelsFileName
         self._dataDirectory = dataDirectory
-        self._expertiseDataExtractor = DataExtractorFactory.getDataExtractor('expertmodel', dataDirectory)
+        self._expertDataExtractor = DataExtractorFactory.getDataExtractor('expertmodel', dataDirectory)
         
     def generateModelForExpertise(self, expertise):
-        self._expertiseDataExtractor.populateData(self._dataDirectory, 'all')
+        self._expertDataExtractor.populateData(self._dataDirectory, 'all')
         self._expertImpactModels[expertise] = {}
         print '>>>>>>>>>>> Generating models for ', expertise
-        self._expertiseDataExtractor.setCurrentExpertise(expertise)
-        modelGenerator = BackStromExpertiseModelGenerator(self._dataDirectory, self._expertiseDataExtractor)
+        self._expertDataExtractor.setCurrentExpertise(expertise)
+        modelGenerator = BackStromExpertiseModelGenerator(self._dataDirectory, self._expertDataExtractor)
         modelGenerator.generateModelForAllExpertise()
         self._expertImpactModels[expertise] = modelGenerator.getModelsForAllExpertise()
             
     def generateModelForAllExpertise(self):
-        expertiseList = self._expertiseDataExtractor.getExpertiseList()
+        expertiseList = self._expertDataExtractor.getExpertiseList()
         for expertise in expertiseList:
             self.generateModelForExpertise(expertise)
         
@@ -64,7 +59,7 @@ class ExpertImpactAPI:
     def __init__(self, dataDirectory, cacheFileName):
         self._modelGenerator = BackstromExpertImpactModelGenerator(dataDirectory, cacheFileName) 
     
-    def getRankedExperts(self, expertise ,userLocation):
+    def getRankedExperts(self, expertise, userLocation):
         if len(self._expertModelsDict) == 0:
             self._modelGenerator.loadCachedModels()
         self._expertModelsDict = self._modelGenerator.getExpertImpactModels()[expertise]
