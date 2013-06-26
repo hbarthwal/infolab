@@ -3,7 +3,7 @@ Created on May 26, 2013
 
 @author: himanshu
 '''
-from math import pow
+from math import pow, log
 from pprint import pprint
 
 from extractdata import DataExtractorFactory
@@ -24,7 +24,7 @@ class SimpleProbabilisticExpertModel(object):
 
     _dataDirectory = ''
     _dataExtractor = None
-    _Dmin = 160
+    _Dmin = 16
     _alpha = 1.75
     _labelerStatsDict = {}
     
@@ -34,10 +34,10 @@ class SimpleProbabilisticExpertModel(object):
     '''
     
     _regions = {
-                'SF':{'center': (37.7750, -122.4183), 'radius': 100},
-                'NYC': {'center': (40.7142, -74.0064), 'radius': 100}, 
-                'Austin': {'center': (30.2669, -97.7428),  'radius': 100},
-                'College Station': {'center': (30.6278, -96.3342), 'radius': 100},
+                'SF':{'center': (37.7750, -122.4183), 'radius': 20, 'population':825000},
+                'NYC': {'center': (40.7142, -74.0064), 'radius': 20, 'population':8300000}, 
+                'Austin': {'center': (30.2669, -97.7428),  'radius': 20, 'population':842000},
+                'College Station': {'center': (30.6278, -96.3342), 'radius': 10, 'population':95000},
                }
     
     # Contains the names of the expertise which are under consideration
@@ -55,6 +55,9 @@ class SimpleProbabilisticExpertModel(object):
         self._dataDirectory = dataDirectory
         self._dataExtractor = DataExtractorFactory.getDataExtractor('expertmodel', dataDirectory)
    
+    def _getEffectiveRadius(self, regionName):
+        return (self._Dmin * log(self._regions[regionName]['population'], 10))
+    
     def _getScore(self, userData, regionName):
         '''
         Calculates the score for an expert given by a user
@@ -68,7 +71,7 @@ class SimpleProbabilisticExpertModel(object):
         distance = Utility.haversine(regionCenter[0], regionCenter[1], userLocation[0], userLocation[1])
         # This is the equation used for calculating the score for the
         # expert.
-        score = (self._Dmin / (self._Dmin + distance))
+        score = self._getEffectiveRadius(regionName)/ (self._Dmin + distance)
         score = pow(score, self._alpha)
         return score
 
@@ -92,7 +95,7 @@ class SimpleProbabilisticExpertModel(object):
             else:
                 regionScoreDict[expertRegionName] += score
     
-    def generateModel(self):
+    def generateDistanceScoreModel(self):
         '''
         Iterates the userdata and calculates the probability values 
         for all the experts.
@@ -135,20 +138,41 @@ class SimpleProbabilisticExpertModel(object):
                 self._labelerStatsDict[expertise][expertId][regionName]['inside'] = 0
                 self._labelerStatsDict[expertise][expertId][regionName]['outside'] = 0
         
-        if distance < self._regions[regionName]['radius']:
+        if distance < self._getEffectiveRadius(regionName):
             self._labelerStatsDict[expertise][expertId][regionName]['inside'] += 1
             
         else:
             self._labelerStatsDict[expertise][expertId][regionName]['outside'] += 1
     
+    def generateLabelerStatsBasedModel(self):
+        for expertise in self._labelerStatsDict:
+            for expertId in self._labelerStatsDict[expertise]:
+                for regionName in self._labelerStatsDict[expertise][expertId]:
+                    regionStats = self._labelerStatsDict[expertise][expertId][regionName]
+                    insideLabelersCount = regionStats['inside']
+                    outsideLabelersCount = regionStats['outside']
+                    regionStats['regionscore'] = float(insideLabelersCount) / (insideLabelersCount + outsideLabelersCount)
         
+    
+    # TODO: Complete it !!
+    def rankExpertsByDistanceScore(self):
+        expertRankDict = {}
+        for expertise in self._expertsScoreDict:
+            expertRankDict[expertise] = []
+            for expertId in self._expertsScoreDict[expertise]:
+                for regionName in self._expertsScoreDict[expertise][expertId]:
+                    score = self._expertsScoreDict[expertise][expertId][regionName]
+                    expertRankDict[expertise].append(expertId, score)    
+    
 def main():
     print 'Main'
     dataDirectory = 'expertdata/'
     modelGenerator = SimpleProbabilisticExpertModel(dataDirectory)
-    modelGenerator.generateModel()
+    modelGenerator.generateDistanceScoreModel()
+    modelGenerator.generateLabelerStatsBasedModel()
     pprint(modelGenerator._expertsScoreDict)
     pprint(modelGenerator._labelerStatsDict)
+
 if __name__ == "__main__":
     main()    
          
